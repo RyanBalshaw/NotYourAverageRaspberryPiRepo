@@ -11,7 +11,7 @@ repos:
     -   id: check-added-large-files # this hook will prevent  extremellarge files from being committed.
         args: [--maxkb=20000]
 -   repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 23.11.0
     hooks:
     -   id: black
 -   repo: https://github.com/PyCQA/isort
@@ -21,10 +21,13 @@ repos:
         args: ["--profile", "black", "--filter-files"]
 - repo: https://github.com/charliermarsh/ruff-pre-commit
   # Ruff version.
-  rev: "v0.0.265"
+  rev: v0.1.6
   hooks:
     - id: ruff
+      # Run the linter.
       args: [--fix, --exit-non-zero-on-fix]
+      # Run the formatter.
+    - id: ruff-format
 -   repo: https://github.com/econchick/interrogate
     rev: 1.5.0
     hooks:

@@ -1,15 +1,22 @@
 [tool.poetry]
-name = "notyouraverageraspberrypirepo"
+name = "NYARPR"
 version = "0.1.0"
 description = ""
 authors = ["RyanBalshaw <ryanbalshaw81@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "StravaVisualiser", from = "NYARPR"},
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
 numpy = "^1.26.2"
-
+requests = "^2.31.0"
+pandas = "^2.1.3"
+python-dotenv = "^1.0.0"
+matplotlib = "^3.8.2"
+scipy = "^1.11.4"
 
 [tool.poetry.group.dev.dependencies]
 setuptools = "^68.2.2"
@@ -22,3 +29,8 @@ interrogate = "^1.5.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.urls]
+homepage = "https://github.com/RyanBalshaw/NotYourAverageRaspberryPiRepo"
+repository = "https://github.com/RyanBalshaw/NotYourAverageRaspberryPiRepo"
+"Bug Tracker" = "https://github.com/RyanBalshaw/NotYourAverageRaspberryPiRepo/issues"
