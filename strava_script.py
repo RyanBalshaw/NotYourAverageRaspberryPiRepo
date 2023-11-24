@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # TODO
     # Create a get_latest_activity_code function - done
     # Create a get all user information function - done
-    # Visualise it all on one grid
+    # Visualise it all on one grid - use matplotlib!
 
     SV.check_tokens(env_path)
 

@@ -3,7 +3,6 @@
 StravaVisualiser. Helping Ryan visualise his strava runs in one neat place.
 """
 from .access_activities import (
-    get_activities,
     get_activity_stream,
     get_cumulative_information,
     get_latest_activity_code,
@@ -17,7 +16,6 @@ __all__ = [
     "get_important_tokens",
     "get_env_variables",
     "check_tokens",
-    "get_activities",
     "get_activity_stream",
     "get_cumulative_information",
     "get_latest_activity_code",
