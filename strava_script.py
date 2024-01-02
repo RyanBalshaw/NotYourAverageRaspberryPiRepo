@@ -37,11 +37,19 @@ if __name__ == "__main__":
         # Ask the user for their client id
         access_code_url = input("Please input the access code url\n--->:")
 
+        # Get the important tokens used to access the user information
         SV.get_important_tokens(
             env_path,
             access_code_url=access_code_url,
             overwrite_old=True,
         )
+
+        # Check the tokens
+        SV.check_tokens(env_path)
+
+    else:
+        # Check the tokens
+        SV.check_tokens(env_path)
 
     # print(SV.get_env_variables(env_path))
 
@@ -53,8 +61,6 @@ if __name__ == "__main__":
     # Create a get_latest_activity_code function - done
     # Create a get all user information function - done
     # Visualise it all on one grid - use matplotlib!
-
-    SV.check_tokens(env_path)
 
     # SV.get_cumulative_information(env_path)
 
