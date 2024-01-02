@@ -4,6 +4,7 @@ Main file for testing.
 """
 
 import os
+import webbrowser
 
 import numpy as np
 import scipy.stats as scistats
@@ -12,15 +13,35 @@ from matplotlib import pyplot as plt
 import NYARPR.StravaVisualiser as SV
 
 if __name__ == "__main__":
-    # https: // www.strava.com / oauth / authorize?client_id = 87007 & response_type = code & redirect_uri = http: // localhost / exchange_token & approval_prompt = force & scope = profile:read_all, activity: read_all
-
     env_path = os.path.join(os.getcwd(), "user_information.env")
 
-    SV.get_important_tokens(
-        env_path,
-        access_code="c3e97fa74143d9326a0ed5010805dfb971e8d22f",
-        overwrite_old=False,
-    )
+    # Check to see if the environment variable file is fully defined
+
+    if len(SV.get_env_variables(env_path)) < 4:  # Four variables are expected
+        # Ask user for the client id
+        client_id = SV.get_client_id(env_path)
+
+        # Ask the user for the client secret
+        client_secret = SV.get_client_secret(
+            env_path
+        )  # Don't actually need it, but oh well
+
+        # Basic loading for client information
+        webbrowser.open(
+            rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
+            "&response_type=code&redirect_uri=http://localhost/"
+            "exchange_token&approval_prompt=force&scope=profile:"
+            "read_all,activity:read_all"
+        )
+
+        # Ask the user for their client id
+        access_code_url = input("Please input the access code url\n--->:")
+
+        SV.get_important_tokens(
+            env_path,
+            access_code_url=access_code_url,
+            overwrite_old=True,
+        )
 
     # print(SV.get_env_variables(env_path))
 
@@ -37,9 +58,8 @@ if __name__ == "__main__":
 
     # SV.get_cumulative_information(env_path)
 
-    act_recent = SV.get_latest_activity_code(
-        env_path, activity_type="Run", date_range=[]
-    )
+    act_recent = SV.get_latest_activity_code(env_path, activity_type="Run")
+
     Path = SV.get_activity_stream(env_path, act_recent)
 
     t = np.array(Path["time.data"].iloc[0]) / 60

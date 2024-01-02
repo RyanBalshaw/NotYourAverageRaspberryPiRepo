@@ -10,6 +10,73 @@ import requests
 from dotenv import dotenv_values, set_key
 
 
+def get_client_id(env_file_path: str) -> str:
+    """
+    A function that gets the client id from a user.
+
+    Parameters
+    ----------
+    env_file_path : str
+        Path of the environment file.
+
+    Returns
+    -------
+    client_id : str
+        The client id for the user.
+    """
+    env_file = get_env_variables(env_file_path)
+
+    if len(env_file) < 4:  # Only expect four inputs in the env file.
+        client_id = input("Please enter in your client id:\n-->:")
+
+        set_key(
+            dotenv_path=env_file_path,
+            key_to_set="CLIENT_ID",
+            value_to_set=client_id,
+            quote_mode="never",
+        )
+
+    else:
+        client_id = env_file["CLIENT_ID"]
+
+    return client_id
+
+
+def get_client_secret(env_file_path: str) -> str:
+    """
+    A function that gets the client secret from a user.
+
+    Parameters
+    ----------
+    env_file_path : str
+        Path of the environment file.
+
+    Returns
+    -------
+    client_secret : str
+        The client secret for the user.
+    """
+    env_file = get_env_variables(env_file_path)
+
+    if len(env_file) < 4:  # Only expect four inputs in the env file.
+        client_secret = input(
+            "Please enter in your client secret (Settings -> "
+            "My API Application):\n-->:"
+        )
+
+        set_key(
+            dotenv_path=env_file_path,
+            key_to_set="CLIENT_SECRET",
+            value_to_set=client_secret,
+            quote_mode="never",
+        )
+
+    else:
+        client_secret = env_file["CLIENT_SECRET"]
+
+    return client_secret
+
+
 def set_env_tokens(env_file_path: str, json_data: dict):
     """
     A function to set the important environment variables (REFRESH_TOKEN and ACCESS_TOKEN)
@@ -17,7 +84,7 @@ def set_env_tokens(env_file_path: str, json_data: dict):
     Parameters
     ----------
     env_file_path : str
-        Path the the environment file.
+        Path of the environment file.
 
     json_data :
         Dict with the request json data.
@@ -133,7 +200,7 @@ def check_tokens(env_file_path: str):
 
 
 def get_important_tokens(
-    env_file_path: str, access_code: str, overwrite_old: bool = False
+    env_file_path: str, access_code_url: str, overwrite_old: bool = False
 ):
     """
 
@@ -142,8 +209,12 @@ def get_important_tokens(
     env_file_path : str
         Path to the 'user_information.env' file.
 
-    access_code : str
-        Access code used to access user information
+    access_code_url : str
+        The url containing the access code used to access user information.
+
+    overwrite_old : bool
+        A flag to specify whether the user environment variable file should be
+        overwritten (default = False).
 
     Returns
     -------
@@ -161,12 +232,16 @@ def get_important_tokens(
 
     if os.path.isfile(json_path) and not overwrite_old:
         print(
-            "JSON file already exists in ./tmp/, and you have opted not to create it."
+            "JSON file already exists in the tmp directory, and you have opted "
+            "not to create it."
         )
 
     elif not os.path.isfile(json_path) or overwrite_old:
         # Access the user environment variables
         user_env = get_env_variables(env_file_path)
+
+        # Extract the access code from the URL (hard-coded, might be problematic later)
+        access_code = access_code_url.split("&")[1].split("=")[1]
 
         # Make the Strava auth API call your client code, client secret and code
         response = requests.post(
