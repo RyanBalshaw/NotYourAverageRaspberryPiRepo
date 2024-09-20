@@ -27,12 +27,25 @@ if __name__ == "__main__":
         )  # Don't actually need it, but oh well
 
         # Basic loading for client information
-        webbrowser.open(
-            rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
-            "&response_type=code&redirect_uri=http://localhost/"
-            "exchange_token&approval_prompt=force&scope=profile:"
-            "read_all,activity:read_all"
-        )
+        try:
+            webbrowser.get()
+            webbrowser.open(
+                rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
+                "&response_type=code&redirect_uri=http://localhost/"
+                "exchange_token&approval_prompt=force&scope=profile:"
+                "read_all,activity:read_all"
+            )
+
+        except Exception as e:
+            oauth_url = (
+                rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
+                "&response_type=code&redirect_uri=http://localhost/"
+                "exchange_token&approval_prompt=force&scope=profile:"
+                "read_all,activity:read_all"
+            )
+
+            print("Please open the following URL in your web browser to authorize:")
+            print(oauth_url)
 
         # Ask the user for their client id
         access_code_url = input("Please input the access code url\n--->:")
