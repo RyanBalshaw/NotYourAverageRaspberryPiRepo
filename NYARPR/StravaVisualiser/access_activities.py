@@ -168,6 +168,7 @@ def get_activity_stream(env_file_path: str, activity_id: int) -> pd.DataFrame:
 
     # lat_lng = np.array(df_recent_activity_stream['latlng.data'].iloc[0])
 
+
 def get_activity_info(env_file_path: str, activity_id: int) -> pd.DataFrame:
     """
     A function that gets the activity information for a specific activity code.
@@ -189,7 +190,7 @@ def get_activity_info(env_file_path: str, activity_id: int) -> pd.DataFrame:
 
     url = f"https://www.strava.com/api/v3/activities/{activity_id}"
     param_dict = {
-        "include_all_efforts ":"false",
+        "include_all_efforts ": "false",
     }
     header_dict = {"Authorization": f"Bearer {env_dict['ACCESS_TOKEN']}"}
 
