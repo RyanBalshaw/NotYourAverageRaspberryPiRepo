@@ -42,7 +42,7 @@ def get_cumulative_information(env_file_path: str):
     Parameters
     ----------
     env_file_path : str
-        Path to the 'user_information.env' file.
+        df_recent_activity_stream to the 'user_information.env' file.
     Returns
     -------
     pandas.DataFrame instance
@@ -65,14 +65,14 @@ def get_cumulative_information(env_file_path: str):
     return pd.json_normalize(response.json())
 
 
-def get_latest_activity_code(env_file_path: str, activity_type: str = ""):
+def get_latest_activity_code(env_file_path: str, activity_type: str = "") -> int:
     """
     A function that returns the latest activity code for a specific activity.
 
     Parameters
     ----------
     env_file_path : str
-        Path to the 'user_information.env' file.
+        df_recent_activity_stream to the 'user_information.env' file.
 
     activity_type : str
         Code that needs to match an ActivityType from StravaAPI
@@ -132,17 +132,17 @@ def get_latest_activity_code(env_file_path: str, activity_type: str = ""):
         print(f"Activity entered ({activity_type}) not recognised. Exiting.")
         raise SystemExit
 
-    return searched_df["id"].iloc[0]
+    return int(searched_df["id"].iloc[0])
 
 
-def get_activity_stream(env_file_path: str, activity_id: int):
+def get_activity_stream(env_file_path: str, activity_id: int) -> pd.DataFrame:
     """
     A function that gets the activity stream for a specific activity code.
 
     Parameters
     ----------
     env_file_path : str
-        Path to the 'user_information.env' file.
+        df_recent_activity_stream to the 'user_information.env' file.
 
     activity_id : int
         The activity code to search for.
@@ -156,7 +156,7 @@ def get_activity_stream(env_file_path: str, activity_id: int):
 
     url = f"https://www.strava.com/api/v3/activities/{activity_id}/streams"
     param_dict = {
-        "keys": "distance,latlng,time,altitude,heartrate",
+        "keys": "distance,latlng,time,altitude,heartrate,grade_smooth",
         "key_by_type": "true",
     }
     header_dict = {"Authorization": f"Bearer {env_dict['ACCESS_TOKEN']}"}
@@ -166,4 +166,34 @@ def get_activity_stream(env_file_path: str, activity_id: int):
 
     return pd.json_normalize(r.json())
 
-    # lat_lng = np.array(Path['latlng.data'].iloc[0])
+    # lat_lng = np.array(df_recent_activity_stream['latlng.data'].iloc[0])
+
+def get_activity_info(env_file_path: str, activity_id: int) -> pd.DataFrame:
+    """
+    A function that gets the activity information for a specific activity code.
+
+    Parameters
+    ----------
+    env_file_path : str
+        df_recent_activity_stream to the 'user_information.env' file.
+
+    activity_id : int
+        The activity code to search for.
+
+    Returns
+    -------
+    Pandas.DataFrame instance
+    """
+    # Get user tokens
+    env_dict = get_env_variables(env_file_path)
+
+    url = f"https://www.strava.com/api/v3/activities/{activity_id}"
+    param_dict = {
+        "include_all_efforts ":"false",
+    }
+    header_dict = {"Authorization": f"Bearer {env_dict['ACCESS_TOKEN']}"}
+
+    # Get the response
+    r = requests.get(url, headers=header_dict, params=param_dict)
+
+    return pd.json_normalize(r.json())

@@ -17,7 +17,7 @@ def get_client_id(env_file_path: str) -> str:
     Parameters
     ----------
     env_file_path : str
-        Path of the environment file.
+        df_recent_activity_stream of the environment file.
 
     Returns
     -------
@@ -49,7 +49,7 @@ def get_client_secret(env_file_path: str) -> str:
     Parameters
     ----------
     env_file_path : str
-        Path of the environment file.
+        df_recent_activity_stream of the environment file.
 
     Returns
     -------
@@ -84,7 +84,7 @@ def set_env_tokens(env_file_path: str, json_data: dict):
     Parameters
     ----------
     env_file_path : str
-        Path of the environment file.
+        df_recent_activity_stream of the environment file.
 
     json_data :
         Dict with the request json data.
@@ -116,7 +116,7 @@ def get_env_variables(env_file_path: str):
     Parameters
     ----------
     env_file_path : str
-        Path to the user_information.env file.
+        df_recent_activity_stream to the user_information.env file.
 
     Returns
     -------
@@ -137,7 +137,7 @@ def check_tokens(env_file_path: str):
     Parameters
     ----------
     env_file_path : str
-        Path to the user environment file.
+        df_recent_activity_stream to the user environment file.
 
     Returns
     -------
@@ -207,7 +207,7 @@ def get_important_tokens(
     Parameters
     ----------
     env_file_path : str
-        Path to the 'user_information.env' file.
+        df_recent_activity_stream to the 'user_information.env' file.
 
     access_code_url : str
         The url containing the access code used to access user information.
