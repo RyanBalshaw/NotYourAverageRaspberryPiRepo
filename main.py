@@ -16,6 +16,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import NYARPR.StravaVisualiser as strava_vis
 
+from matplotlib.animation import FuncAnimation, PillowWriter
+
 if __name__ == "__main__":
     env_path = os.path.join(os.getcwd(), "user_information.env")
 
@@ -116,7 +118,8 @@ if __name__ == "__main__":
             "xtick.color": text_color,
             "ytick.color": text_color,
             "figure.dpi": 300,
-        }
+            'animation.convert_path': r'/usr/bin/convert'
+     }
     )
 
     _label_fontsize = 16
@@ -133,9 +136,13 @@ if __name__ == "__main__":
 
     # Run path colored by heart rate
     ax_path = fig.add_subplot(gs[0, :])
-    scatter = ax_path.scatter(
-        lat_lng[:, 1], lat_lng[:, 0], c=rel_alt, cmap="magma", s=10, alpha=0.7
-    )
+
+    scatter = ax_path.scatter([], [], c=[], cmap="magma", s=10, alpha=0.7)
+
+    # Set limits
+    ax_path.set_xlim(lat_lng[:, 1].min() * 0.8, lat_lng[:, 1].max() * 1.2)
+    ax_path.set_ylim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
+
     ax_path.set_xlabel(
         "Longitude", fontproperties=roboto_regular, fontsize=_label_fontsize
     )
@@ -155,6 +162,17 @@ if __name__ == "__main__":
         "Altitude (relative)", fontproperties=roboto_regular, fontsize=_label_fontsize
     )
     cbar.ax.tick_params(labelsize=_tick_size)
+
+    def init():
+        scatter.set_offsets(np.empty((0, 2)))
+        scatter.set_array(np.array([]))
+        return [scatter]
+
+
+    def update(frame):
+        scatter.set_offsets(lat_lng[:frame])
+        scatter.set_array(rel_alt[:frame])
+        return [scatter]
 
     # Add run details to legend
     recent_distance = df_recent_activity_info["distance"].iloc[0] / 1000
@@ -329,4 +347,8 @@ if __name__ == "__main__":
     ax_stats.patch.set_alpha(0.3)
 
     fig.tight_layout()
-    plt.show()
+
+    anim = FuncAnimation(fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=100)
+
+    anim.save(filename="plot.mp4")
+    plt.close()
