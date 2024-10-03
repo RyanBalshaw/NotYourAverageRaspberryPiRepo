@@ -11,12 +11,11 @@ import matplotlib.font_manager as fm
 import numpy as np
 import scipy.stats as scistats
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import NYARPR.StravaVisualiser as strava_vis
-
-from matplotlib.animation import FuncAnimation, PillowWriter
 
 if __name__ == "__main__":
     env_path = os.path.join(os.getcwd(), "user_information.env")
@@ -118,8 +117,8 @@ if __name__ == "__main__":
             "xtick.color": text_color,
             "ytick.color": text_color,
             "figure.dpi": 300,
-            'animation.convert_path': r'/usr/bin/convert'
-     }
+            "animation.convert_path": r"/usr/bin/convert",
+        }
     )
 
     _label_fontsize = 16
@@ -168,7 +167,6 @@ if __name__ == "__main__":
         scatter.set_array(np.array([]))
         return [scatter]
 
-
     def update(frame):
         scatter.set_offsets(lat_lng[:frame])
         scatter.set_array(rel_alt[:frame])
@@ -181,7 +179,7 @@ if __name__ == "__main__":
     recent_calories = df_recent_activity_info["calories"].iloc[0]
     recent_moving_time = df_recent_activity_info["moving_time"].iloc[0] / 60
 
-    current_year = datetime.now().strftime('%Y')
+    current_year = datetime.now().strftime("%Y")
     dt = datetime.strptime(recent_timestamp, "%Y-%m-%dT%H:%M:%SZ")
     formatted_recent_timestamp = dt.strftime("%d %b %Y, %I:%M %p")
 
@@ -261,8 +259,11 @@ if __name__ == "__main__":
 
     # Icon and main title
     ax_stats.text(
-        0.58, 0.7, "Statistics",
-        va="center", ha="center",
+        0.58,
+        0.7,
+        "Statistics",
+        va="center",
+        ha="center",
         fontproperties=roboto_bold,
         fontsize=_text_fontsize + 2,
         color=text_color,
@@ -272,15 +273,21 @@ if __name__ == "__main__":
     y_annual = 0.25
     y_last_4 = 0.4
     ax_stats.text(
-        -0.1, y_last_4, "Last 4 weeks",
-        va="center", ha="center",
+        -0.1,
+        y_last_4,
+        "Last 4 weeks",
+        va="center",
+        ha="center",
         fontproperties=roboto_bold,
         fontsize=_text_fontsize,
         color=green_color,
     )
     ax_stats.text(
-        -0.1, y_annual, f"{current_year}",
-        va="center", ha="center",
+        -0.1,
+        y_annual,
+        f"{current_year}",
+        va="center",
+        ha="center",
         fontproperties=roboto_bold,
         fontsize=_text_fontsize,
         color=green_color,
@@ -288,15 +295,24 @@ if __name__ == "__main__":
 
     # Statistics data
     stats = [
-        ("\uf1ec", "Runs",
-         f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
-         f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}"),
-        ("\uf547", "Distance",
-         f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
-         f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km"),
-        ("\uf017", "Time spent",
-         f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
-         f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours"),
+        (
+            "\uf1ec",
+            "Runs",
+            f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
+            f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}",
+        ),
+        (
+            "\uf547",
+            "Distance",
+            f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
+            f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km",
+        ),
+        (
+            "\uf017",
+            "Time spent",
+            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
+            f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
+        ),
     ]
 
     for i, (icon, label, value_4weeks, value_annual) in enumerate(stats):
@@ -304,17 +320,23 @@ if __name__ == "__main__":
 
         # Icon
         ax_stats.text(
-            x_pos, y_last_4 + 0.15, icon,
+            x_pos,
+            y_last_4 + 0.15,
+            icon,
             fontproperties=font_awesome,
             fontsize=_icon_fontsize * 1.2,
-            va="center", ha="center",
+            va="center",
+            ha="center",
             color=accent_color,
         )
 
         # Label
         ax_stats.text(
-            x_pos, y_annual - 0.1, label,
-            va="center", ha="center",
+            x_pos,
+            y_annual - 0.1,
+            label,
+            va="center",
+            ha="center",
             fontproperties=roboto_regular,
             fontsize=_text_fontsize - 2,
             color=secondary_color,
@@ -322,8 +344,11 @@ if __name__ == "__main__":
 
         # 4-week value
         ax_stats.text(
-            x_pos, y_annual, value_4weeks,
-            va="center", ha="center",
+            x_pos,
+            y_annual,
+            value_4weeks,
+            va="center",
+            ha="center",
             fontproperties=roboto_bold,
             fontsize=_text_fontsize,
             color=text_color,
@@ -331,8 +356,11 @@ if __name__ == "__main__":
 
         # Annual value
         ax_stats.text(
-            x_pos, y_last_4, value_annual,
-            va="center", ha="center",
+            x_pos,
+            y_last_4,
+            value_annual,
+            va="center",
+            ha="center",
             fontproperties=roboto_bold,
             fontsize=_text_fontsize,
             color=text_color,
@@ -348,7 +376,9 @@ if __name__ == "__main__":
 
     fig.tight_layout()
 
-    anim = FuncAnimation(fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=100)
+    anim = FuncAnimation(
+        fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=100
+    )
 
     anim.save(filename="plot.mp4")
     plt.close()
