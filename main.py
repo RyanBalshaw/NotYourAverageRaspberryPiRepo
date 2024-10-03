@@ -104,6 +104,7 @@ if __name__ == "__main__":
     text_color = "#f8f8f2"
     accent_color = "#ff79c6"
     secondary_color = "#8be9fd"
+    green_color = "#50fa7b"
 
     plt.rcParams.update(
         {
@@ -142,7 +143,7 @@ if __name__ == "__main__":
         "Latitude", fontproperties=roboto_regular, fontsize=_label_fontsize
     )
     ax_path.set_title(
-        "Latest run:", fontproperties=roboto_bold, fontsize=_title_fontsize
+        "Latest run", fontproperties=roboto_bold, fontsize=_title_fontsize
     )
     ax_path.axis("off")
 
@@ -162,6 +163,7 @@ if __name__ == "__main__":
     recent_calories = df_recent_activity_info["calories"].iloc[0]
     recent_moving_time = df_recent_activity_info["moving_time"].iloc[0] / 60
 
+    current_year = datetime.now().strftime('%Y')
     dt = datetime.strptime(recent_timestamp, "%Y-%m-%dT%H:%M:%SZ")
     formatted_recent_timestamp = dt.strftime("%d %b %Y, %I:%M %p")
 
@@ -233,71 +235,89 @@ if __name__ == "__main__":
     ax_hr.xaxis.set_major_locator(MaxNLocator(nbins=5))
 
     # Stats bar
+    # Past 4 weeks
+
+    # \uf073
+    # Statistics section
     ax_stats = fig.add_subplot(gs[1, 1])
+
+    # Icon and main title
     ax_stats.text(
-        0.5,
-        0.9,
-        "\uf201",
-        fontproperties=font_awesome,
-        fontsize=_icon_fontsize * 1.5,
-        va="center",
-        ha="center",
-        color=accent_color,
-    )
-    ax_stats.text(
-        0.5,
-        0.8,
-        "Yearly statistics",
-        va="center",
-        ha="center",
+        0.58, 0.7, "Statistics",
+        va="center", ha="center",
         fontproperties=roboto_bold,
-        fontsize=_text_fontsize,
+        fontsize=_text_fontsize + 2,
         color=text_color,
     )
 
+    # Column titles
+    y_annual = 0.25
+    y_last_4 = 0.4
+    ax_stats.text(
+        -0.1, y_last_4, "Last 4 weeks",
+        va="center", ha="center",
+        fontproperties=roboto_bold,
+        fontsize=_text_fontsize,
+        color=green_color,
+    )
+    ax_stats.text(
+        -0.1, y_annual, f"{current_year}",
+        va="center", ha="center",
+        fontproperties=roboto_bold,
+        fontsize=_text_fontsize,
+        color=green_color,
+    )
+
+    # Statistics data
     stats = [
-        ("\uf70c", f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}", "Runs"),
-        (
-            "\uf547",
-            f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km",
-            "Distance",
-        ),
-        (
-            "\uf017",
-            f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
-            "Time spent",
-        ),
+        ("\uf1ec", "Runs",
+         f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
+         f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}"),
+        ("\uf547", "Distance",
+         f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
+         f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km"),
+        ("\uf017", "Time spent",
+         f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
+         f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours"),
     ]
 
-    for i, (icon, value, label) in enumerate(stats):
+    for i, (icon, label, value_4weeks, value_annual) in enumerate(stats):
+        x_pos = 0.2 + i * 0.38
+
+        # Icon
         ax_stats.text(
-            0.1,
-            0.6 - i * 0.2,
-            icon,
+            x_pos, y_last_4 + 0.15, icon,
             fontproperties=font_awesome,
-            fontsize=_icon_fontsize,
-            va="center",
+            fontsize=_icon_fontsize * 1.2,
+            va="center", ha="center",
             color=accent_color,
         )
+
+        # Label
         ax_stats.text(
-            0.3,
-            0.6 - i * 0.2,
-            value,
-            va="center",
-            ha="left",
+            x_pos, y_annual - 0.1, label,
+            va="center", ha="center",
+            fontproperties=roboto_regular,
+            fontsize=_text_fontsize - 2,
+            color=secondary_color,
+        )
+
+        # 4-week value
+        ax_stats.text(
+            x_pos, y_annual, value_4weeks,
+            va="center", ha="center",
             fontproperties=roboto_bold,
             fontsize=_text_fontsize,
             color=text_color,
         )
+
+        # Annual value
         ax_stats.text(
-            0.3,
-            0.53 - i * 0.2,
-            label,
-            va="center",
-            ha="left",
-            fontproperties=roboto_regular,
-            fontsize=_text_fontsize - 2,
-            color=secondary_color,
+            x_pos, y_last_4, value_annual,
+            va="center", ha="center",
+            fontproperties=roboto_bold,
+            fontsize=_text_fontsize,
+            color=text_color,
         )
 
     ax_stats.axis("off")
