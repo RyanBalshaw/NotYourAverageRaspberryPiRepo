@@ -7,17 +7,17 @@ import os
 import webbrowser
 from datetime import datetime
 
+import matplotlib as mpl
 import matplotlib.font_manager as fm
 import numpy as np
 import scipy.stats as scistats
-import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from tqdm import tqdm
 
 import NYARPR.StravaVisualiser as strava_vis
-from tqdm import tqdm
 
 if __name__ == "__main__":
     env_path = os.path.join(os.getcwd(), "user_information.env")
@@ -140,7 +140,9 @@ if __name__ == "__main__":
     ax_path = fig.add_subplot(gs[0, :])
     ax_path_cmap = mpl.colormaps["magma"]
     ax_path.plot(lat_lng[:, 0], lat_lng[:, 1], "--", color=comment_color)
-    scatter = ax_path.scatter([], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5)
+    scatter = ax_path.scatter(
+        [], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5
+    )
 
     # Set limits
     # ax_path.set_xlim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
@@ -250,12 +252,14 @@ if __name__ == "__main__":
     xx = np.linspace(min_hr, max_hr, 100)
     yy = kde(xx)
 
-    line_hr, = ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=accent_color)
+    (line_hr,) = ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=accent_color)
 
     pbar = tqdm(total=len(lat_lng))
 
     def init():
-
+        """
+        FunAnimation initialisation.
+        """
         # line_hr.set_data([min_hr, max_hr], [0.1] * 2)
 
         scatter.set_offsets(lat_lng[:1])
@@ -265,6 +269,9 @@ if __name__ == "__main__":
         return [scatter]
 
     def update(frame):
+        """
+        FunAnimation updating.
+        """
         pbar.update(1)
 
         # ax_path updates
@@ -300,7 +307,6 @@ if __name__ == "__main__":
         #     ax_hr.set_ylim((-0.005, np.max(kde) * 1.5))
 
         return [scatter]
-
 
     ax_hr.set_xlabel(
         "Heart rate (BPM)", fontproperties=roboto_regular, fontsize=_label_fontsize
@@ -439,11 +445,16 @@ if __name__ == "__main__":
 
     fig.tight_layout()
 
-    anim = FuncAnimation( #len(lat_lng)
-        fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=10000/len(lat_lng), blit=True
+    anim = FuncAnimation(  # len(lat_lng)
+        fig,
+        update,
+        frames=len(lat_lng),
+        init_func=init,
+        repeat=False,
+        interval=10000 / len(lat_lng),
+        blit=False,
     )
 
     anim.save(filename="plot.mp4")
 
     pbar.close()
-
