@@ -10,12 +10,14 @@ from datetime import datetime
 import matplotlib.font_manager as fm
 import numpy as np
 import scipy.stats as scistats
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import NYARPR.StravaVisualiser as strava_vis
+from tqdm import tqdm
 
 if __name__ == "__main__":
     env_path = os.path.join(os.getcwd(), "user_information.env")
@@ -106,6 +108,7 @@ if __name__ == "__main__":
     accent_color = "#ff79c6"
     secondary_color = "#8be9fd"
     green_color = "#50fa7b"
+    comment_color = "#6272a4"
 
     plt.rcParams.update(
         {
@@ -135,12 +138,13 @@ if __name__ == "__main__":
 
     # Run path colored by heart rate
     ax_path = fig.add_subplot(gs[0, :])
-
-    scatter = ax_path.scatter([], [], c=[], cmap="magma", s=10, alpha=0.7)
+    ax_path_cmap = mpl.colormaps["magma"]
+    ax_path.plot(lat_lng[:, 0], lat_lng[:, 1], "--", color=comment_color)
+    scatter = ax_path.scatter([], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5)
 
     # Set limits
-    ax_path.set_xlim(lat_lng[:, 1].min() * 0.8, lat_lng[:, 1].max() * 1.2)
-    ax_path.set_ylim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
+    # ax_path.set_xlim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
+    # ax_path.set_ylim(lat_lng[:, 1].min() * 0.8, lat_lng[:, 1].max() * 1.2)
 
     ax_path.set_xlabel(
         "Longitude", fontproperties=roboto_regular, fontsize=_label_fontsize
@@ -156,21 +160,14 @@ if __name__ == "__main__":
     # Add colorbar
     divider = make_axes_locatable(ax_path)
     cax = divider.append_axes("right", size="5%", pad=0.1)
-    cbar = plt.colorbar(scatter, cax=cax)
+
+    norm = mpl.colors.Normalize(vmin=np.min(rel_alt), vmax=np.max(rel_alt))
+    mpl.cm.ScalarMappable(norm=norm, cmap=ax_path_cmap)
+    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=ax_path_cmap), cax=cax)
     cbar.set_label(
         "Altitude (relative)", fontproperties=roboto_regular, fontsize=_label_fontsize
     )
     cbar.ax.tick_params(labelsize=_tick_size)
-
-    def init():
-        scatter.set_offsets(np.empty((0, 2)))
-        scatter.set_array(np.array([]))
-        return [scatter]
-
-    def update(frame):
-        scatter.set_offsets(lat_lng[:frame])
-        scatter.set_array(rel_alt[:frame])
-        return [scatter]
 
     # Add run details to legend
     recent_distance = df_recent_activity_info["distance"].iloc[0] / 1000
@@ -229,6 +226,19 @@ if __name__ == "__main__":
     # Heart rate KDE and histogram
     ax_hr = fig.add_subplot(gs[1, 0])
     counts, bins, _ = ax_hr.hist(
+        hrt[0],
+        density=True,
+        bins=50,
+        alpha=0.6,
+        color=secondary_color,
+        edgecolor=accent_color,
+    )
+
+    min_hr = np.min(hrt)
+    max_hr = np.max(hrt)
+    ax_hr.set_xlim((min_hr, max_hr))
+
+    _ = ax_hr.hist(
         hrt,
         density=True,
         bins=50,
@@ -237,8 +247,61 @@ if __name__ == "__main__":
         edgecolor=accent_color,
     )
     kde = scistats.gaussian_kde(hrt)
-    xx = np.linspace(np.min(hrt), np.max(hrt), 100)
-    ax_hr.plot(xx, kde(xx), color=accent_color, linestyle="--", linewidth=2)
+    xx = np.linspace(min_hr, max_hr, 100)
+    yy = kde(xx)
+
+    line_hr, = ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=accent_color)
+
+    pbar = tqdm(total=len(lat_lng))
+
+    def init():
+
+        # line_hr.set_data([min_hr, max_hr], [0.1] * 2)
+
+        scatter.set_offsets(lat_lng[:1])
+        scatter.set_array(rel_alt[:1])  # Set initial color
+        scatter.set_clim(np.min(rel_alt), np.max(rel_alt))  # Set color limits
+
+        return [scatter]
+
+    def update(frame):
+        pbar.update(1)
+
+        # ax_path updates
+        scatter.set_offsets(lat_lng[:frame])
+        scatter.set_array(rel_alt[:frame])  # Update the color array
+
+        # Set the color limits to match the full range of rel_alt
+        scatter.set_clim(np.min(rel_alt), np.max(rel_alt))
+        #
+        # # ax_hr updates
+        # if frame % 300 == 0:
+        #     # Clear the frame
+        #     ax_hr.cla()
+        #
+        #     if frame < 3:
+        #         hrt_frame = hrt[:3]
+        #     else:
+        #         hrt_frame = hrt[:frame]
+        #     pdf, bins, _ = ax_hr.hist(
+        #         hrt_frame,
+        #         density=True,
+        #         bins=50,
+        #         alpha=0.6,
+        #         color=secondary_color,
+        #         edgecolor=accent_color,
+        #     )
+        #     kde = scistats.gaussian_kde(hrt_frame)
+        #     xx = np.linspace(min_hr, max_hr, 100)
+        #     yy = kde(xx)
+        #
+        #     line_hr.set_data(xx, yy)
+        #
+        #     ax_hr.set_ylim((-0.005, np.max(kde) * 1.5))
+
+        return [scatter]
+
+
     ax_hr.set_xlabel(
         "Heart rate (BPM)", fontproperties=roboto_regular, fontsize=_label_fontsize
     )
@@ -298,20 +361,20 @@ if __name__ == "__main__":
         (
             "\uf1ec",
             "Runs",
-            f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
             f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}",
+            f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
         ),
         (
             "\uf547",
             "Distance",
-            f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
             f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km",
+            f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
         ),
         (
             "\uf017",
             "Time spent",
-            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
             f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
+            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
         ),
     ]
 
@@ -376,9 +439,11 @@ if __name__ == "__main__":
 
     fig.tight_layout()
 
-    anim = FuncAnimation(
-        fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=100
+    anim = FuncAnimation( #len(lat_lng)
+        fig, update, frames=len(lat_lng), init_func=init, repeat=False, interval=10000/len(lat_lng), blit=True
     )
 
     anim.save(filename="plot.mp4")
-    plt.close()
+
+    pbar.close()
+
