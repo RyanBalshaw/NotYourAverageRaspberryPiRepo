@@ -38,3 +38,4 @@ Definitely an average raspberry pi repository.
      Name=Strava Display
      Exec=/path/to/your/start_display.sh" > ~/.config/autostart/strava_display.desktop
      ```
+     - [Videos on RaspberryPi](https://stackoverflow.com/questions/68839409/playing-a-video-on-raspberry-pi-os-startup)
