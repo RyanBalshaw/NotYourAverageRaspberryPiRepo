@@ -20,6 +20,7 @@ from tqdm import tqdm
 import NYARPR.StravaVisualiser as strava_vis
 
 if __name__ == "__main__":
+    generate_animation = False
     env_path = os.path.join(os.getcwd(), "user_information.env")
 
     # Check to see if the environment variable file is fully defined
@@ -140,9 +141,22 @@ if __name__ == "__main__":
     ax_path = fig.add_subplot(gs[0, :])
     ax_path_cmap = mpl.colormaps["magma"]
     ax_path.plot(lat_lng[:, 0], lat_lng[:, 1], "--", color=comment_color)
-    scatter = ax_path.scatter(
-        [], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5
-    )
+
+    if generate_animation:
+        scatter = ax_path.scatter(
+            [], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5
+        )
+
+    else:
+        scatter = ax_path.scatter(
+            lat_lng[:, 0],
+            lat_lng[:, 1],
+            c=rel_alt,
+            cmap=ax_path_cmap,
+            s=30,
+            alpha=0.7,
+            zorder=2.5,
+        )
 
     # Set limits
     # ax_path.set_xlim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
@@ -227,8 +241,8 @@ if __name__ == "__main__":
 
     # Heart rate KDE and histogram
     ax_hr = fig.add_subplot(gs[1, 0])
-    counts, bins, _ = ax_hr.hist(
-        hrt[0],
+    _ = ax_hr.hist(
+        hrt[0] if generate_animation else hrt,
         density=True,
         bins=50,
         alpha=0.6,
@@ -240,73 +254,11 @@ if __name__ == "__main__":
     max_hr = np.max(hrt)
     ax_hr.set_xlim((min_hr, max_hr))
 
-    _ = ax_hr.hist(
-        hrt,
-        density=True,
-        bins=50,
-        alpha=0.6,
-        color=secondary_color,
-        edgecolor=accent_color,
-    )
     kde = scistats.gaussian_kde(hrt)
     xx = np.linspace(min_hr, max_hr, 100)
     yy = kde(xx)
 
     (line_hr,) = ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=accent_color)
-
-    pbar = tqdm(total=len(lat_lng))
-
-    def init():
-        """
-        FunAnimation initialisation.
-        """
-        # line_hr.set_data([min_hr, max_hr], [0.1] * 2)
-
-        scatter.set_offsets(lat_lng[:1])
-        scatter.set_array(rel_alt[:1])  # Set initial color
-        scatter.set_clim(np.min(rel_alt), np.max(rel_alt))  # Set color limits
-
-        return [scatter]
-
-    def update(frame):
-        """
-        FunAnimation updating.
-        """
-        pbar.update(1)
-
-        # ax_path updates
-        scatter.set_offsets(lat_lng[:frame])
-        scatter.set_array(rel_alt[:frame])  # Update the color array
-
-        # Set the color limits to match the full range of rel_alt
-        scatter.set_clim(np.min(rel_alt), np.max(rel_alt))
-        #
-        # # ax_hr updates
-        # if frame % 300 == 0:
-        #     # Clear the frame
-        #     ax_hr.cla()
-        #
-        #     if frame < 3:
-        #         hrt_frame = hrt[:3]
-        #     else:
-        #         hrt_frame = hrt[:frame]
-        #     pdf, bins, _ = ax_hr.hist(
-        #         hrt_frame,
-        #         density=True,
-        #         bins=50,
-        #         alpha=0.6,
-        #         color=secondary_color,
-        #         edgecolor=accent_color,
-        #     )
-        #     kde = scistats.gaussian_kde(hrt_frame)
-        #     xx = np.linspace(min_hr, max_hr, 100)
-        #     yy = kde(xx)
-        #
-        #     line_hr.set_data(xx, yy)
-        #
-        #     ax_hr.set_ylim((-0.005, np.max(kde) * 1.5))
-
-        return [scatter]
 
     ax_hr.set_xlabel(
         "Heart rate (BPM)", fontproperties=roboto_regular, fontsize=_label_fontsize
@@ -445,16 +397,73 @@ if __name__ == "__main__":
 
     fig.tight_layout()
 
-    anim = FuncAnimation(  # len(lat_lng)
-        fig,
-        update,
-        frames=len(lat_lng),
-        init_func=init,
-        repeat=False,
-        interval=10000 / len(lat_lng),
-        blit=False,
-    )
+    if generate_animation:
+        pbar = tqdm(total=len(lat_lng))
 
-    anim.save(filename="plot.mp4")
+        def init():
+            """
+            FunAnimation initialisation.
+            """
+            # line_hr.set_data([min_hr, max_hr], [0.1] * 2)
 
-    pbar.close()
+            scatter.set_offsets(lat_lng[:1])
+            scatter.set_array(rel_alt[:1])  # Set initial color
+            scatter.set_clim(np.min(rel_alt), np.max(rel_alt))  # Set color limits
+
+            return [scatter]
+
+        def update(frame):
+            """
+            FunAnimation updating.
+            """
+            pbar.update(1)
+
+            # ax_path updates
+            scatter.set_offsets(lat_lng[:frame])
+            scatter.set_array(rel_alt[:frame])  # Update the color array
+
+            # Set the color limits to match the full range of rel_alt
+            scatter.set_clim(np.min(rel_alt), np.max(rel_alt))
+            #
+            # # ax_hr updates
+            # if frame % 300 == 0:
+            #     # Clear the frame
+            #     ax_hr.cla()
+            #
+            #     if frame < 3:
+            #         hrt_frame = hrt[:3]
+            #     else:
+            #         hrt_frame = hrt[:frame]
+            #     pdf, bins, _ = ax_hr.hist(
+            #         hrt_frame,
+            #         density=True,
+            #         bins=50,
+            #         alpha=0.6,
+            #         color=secondary_color,
+            #         edgecolor=accent_color,
+            #     )
+            #     kde = scistats.gaussian_kde(hrt_frame)
+            #     xx = np.linspace(min_hr, max_hr, 100)
+            #     yy = kde(xx)
+            #
+            #     line_hr.set_data(xx, yy)
+            #
+            #     ax_hr.set_ylim((-0.005, np.max(kde) * 1.5))
+
+            return [scatter]
+
+        anim = FuncAnimation(  # len(lat_lng)
+            fig,
+            update,
+            frames=len(lat_lng),
+            init_func=init,
+            repeat=False,
+            interval=10000 / len(lat_lng),
+            blit=False,
+        )
+
+        anim.save(filename="plot.mp4")
+
+        pbar.close()
+
+    plt.show()
