@@ -218,7 +218,6 @@ class StravaVisualizer:
         recent_calories = self.df_recent_activity_info["calories"].iloc[0]
         recent_moving_time = self.df_recent_activity_info["moving_time"].iloc[0] / 60
 
-        current_year = datetime.now().strftime("%Y")
         dt = datetime.strptime(recent_timestamp, "%Y-%m-%dT%H:%M:%SZ")
         formatted_recent_timestamp = dt.strftime("%d %b %Y, %I:%M %p")
 
