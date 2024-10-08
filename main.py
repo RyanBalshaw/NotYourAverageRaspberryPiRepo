@@ -19,6 +19,25 @@ from tqdm import tqdm
 
 import NYARPR.StravaVisualiser as strava_vis
 
+def scale_max_min(data_array, min_scale = 0.8, max_scale=1.2):
+    min_val = np.min(data_array)
+    max_val = np.max(data_array)
+
+    # Calculate the range
+    data_range = max_val - min_val
+
+    # Calculate the amount to add/subtract
+    padding_min = data_range * min_scale
+    padding_max = data_range * max_scale
+
+    # Calculate new min and max
+    new_min = min_val - padding_min
+    new_max = max_val + padding_max
+
+    return new_min, new_max
+
+
+
 if __name__ == "__main__":
     generate_animation = False
     env_path = os.path.join(os.getcwd(), "user_information.env")
@@ -159,8 +178,8 @@ if __name__ == "__main__":
         )
 
     # Set limits
-    # ax_path.set_xlim(lat_lng[:, 0].min() * 0.8, lat_lng[:, 0].max() * 1.2)
-    # ax_path.set_ylim(lat_lng[:, 1].min() * 0.8, lat_lng[:, 1].max() * 1.2)
+    ax_path.set_xlim(scale_max_min(lat_lng[:, 0], 0.4, 0.2))
+    ax_path.set_ylim(scale_max_min(lat_lng[:, 1], 0.2, 0.2))
 
     ax_path.set_xlabel(
         "Longitude", fontproperties=roboto_regular, fontsize=_label_fontsize
