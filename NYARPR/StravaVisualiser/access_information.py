@@ -200,7 +200,7 @@ def check_tokens(env_file_path: str):
 
 
 def get_important_tokens(
-    env_file_path: str, access_code_url: str, overwrite_old: bool = False
+    env_file_path: str, tmp_dir_path, access_code_url: str, overwrite_old: bool = False
 ):
     """
 
@@ -208,6 +208,9 @@ def get_important_tokens(
     ----------
     env_file_path : str
         df_recent_activity_stream to the 'user_information.env' file.
+
+    tmp_dir_path : str
+        The path to the temporary directory.
 
     access_code_url : str
         The url containing the access code used to access user information.
@@ -221,7 +224,6 @@ def get_important_tokens(
     None
     """
 
-    tmp_dir_path = os.path.join(os.getcwd(), "tmp")
     json_path = os.path.join(tmp_dir_path, "strava_tokens.json")
 
     # Create a tmp file to store the .json file

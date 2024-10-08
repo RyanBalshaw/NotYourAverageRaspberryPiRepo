@@ -57,6 +57,7 @@ def scale_max_min(
 if __name__ == "__main__":
     generate_animation = False
     env_path = os.path.join(os.getcwd(), "user_information.env")
+    tmp_dir_path = os.path.join(os.getcwd(), "tmp")
 
     # Check to see if the environment variable file is fully defined
 
@@ -96,6 +97,7 @@ if __name__ == "__main__":
         # Get the important tokens used to access the user information
         strava_vis.get_important_tokens(
             env_path,
+            tmp_dir_path,
             access_code_url=access_code_url,
             overwrite_old=True,
         )
@@ -505,4 +507,10 @@ if __name__ == "__main__":
 
         pbar.close()
 
-    plt.show()
+    fig.savefig(
+        os.path.join(
+            tmp_dir_path,
+            f"strava_plot_{datetime.now().isoformat(timespec='seconds')}.png",
+        )
+    )
+    plt.close()
