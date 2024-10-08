@@ -6,6 +6,7 @@ Main file for testing.
 import os
 import webbrowser
 from datetime import datetime
+from typing import Tuple
 
 import matplotlib as mpl
 import matplotlib.font_manager as fm
@@ -19,7 +20,23 @@ from tqdm import tqdm
 
 import NYARPR.StravaVisualiser as strava_vis
 
-def scale_max_min(data_array, min_scale = 0.8, max_scale=1.2):
+
+def scale_max_min(
+    data_array: np.ndarray, min_scale: float = 0.2, max_scale: float = 0.2
+) -> Tuple[float, float]:
+    """
+    A simple method to adjust the x_lim and y_lim of a plot in a controlled manner.
+
+    Parameters
+    ----------
+    data_array: The array of data.
+    min_scale: A factor to adjust the padding of the min value.
+    max_scale: A factor to adjust the padding of the min value.
+
+    Returns
+    -------
+    A tuple of floats (new_min, new_max).
+    """
     min_val = np.min(data_array)
     max_val = np.max(data_array)
 
@@ -35,7 +52,6 @@ def scale_max_min(data_array, min_scale = 0.8, max_scale=1.2):
     new_max = max_val + padding_max
 
     return new_min, new_max
-
 
 
 if __name__ == "__main__":
@@ -144,11 +160,11 @@ if __name__ == "__main__":
         }
     )
 
-    _label_fontsize = 16
-    _title_fontsize = 20
-    _text_fontsize = 14
-    _icon_fontsize = 18
-    _tick_size = 12
+    _label_fontsize = 22
+    _title_fontsize = 26
+    _text_fontsize = 20
+    _icon_fontsize = 24
+    _tick_size = 16
 
     # Create the plot
     fig = plt.figure(figsize=(16, 12))
@@ -225,8 +241,8 @@ if __name__ == "__main__":
 
     for i, (icon, value, label) in enumerate(details):
         ax_path.text(
-            0.02,
-            0.98 - i * 0.1,
+            -0.1,
+            0.98 - i * 0.15,
             icon,
             transform=ax_path.transAxes,
             fontproperties=font_awesome,
@@ -236,8 +252,8 @@ if __name__ == "__main__":
             color=accent_color,
         )
         ax_path.text(
-            0.06,
-            0.98 - i * 0.1,
+            -0.04,
+            0.98 - i * 0.15,
             value,
             transform=ax_path.transAxes,
             va="top",
@@ -247,8 +263,8 @@ if __name__ == "__main__":
             color=text_color,
         )
         ax_path.text(
-            0.06,
-            0.94 - i * 0.1,
+            -0.04,
+            0.9 - i * 0.15,
             label,
             transform=ax_path.transAxes,
             va="top",
@@ -297,10 +313,17 @@ if __name__ == "__main__":
     # Statistics section
     ax_stats = fig.add_subplot(gs[1, 1])
 
+    # Column titles
+    x_start = -0.3
+    x_delta = 0.5
+    y_annual = 0.2
+    y_last_4 = 0.5
+    y_stats = 0.9
+
     # Icon and main title
     ax_stats.text(
-        0.58,
-        0.7,
+        x_start + 2 * x_delta,
+        y_stats,
         "Statistics",
         va="center",
         ha="center",
@@ -309,13 +332,10 @@ if __name__ == "__main__":
         color=text_color,
     )
 
-    # Column titles
-    y_annual = 0.25
-    y_last_4 = 0.4
     ax_stats.text(
-        -0.1,
+        x_start,
         y_last_4,
-        "Last 4 weeks",
+        "Last 4 \nweeks",
         va="center",
         ha="center",
         fontproperties=roboto_bold,
@@ -323,7 +343,7 @@ if __name__ == "__main__":
         color=green_color,
     )
     ax_stats.text(
-        -0.1,
+        x_start,
         y_annual,
         f"{current_year}",
         va="center",
@@ -350,18 +370,18 @@ if __name__ == "__main__":
         (
             "\uf017",
             "Time spent",
-            f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
-            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hours",
+            f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs",
+            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs",
         ),
     ]
 
     for i, (icon, label, value_4weeks, value_annual) in enumerate(stats):
-        x_pos = 0.2 + i * 0.38
+        x_pos = x_start + (i + 1) * x_delta
 
         # Icon
         ax_stats.text(
             x_pos,
-            y_last_4 + 0.15,
+            y_last_4 + 0.25,
             icon,
             fontproperties=font_awesome,
             fontsize=_icon_fontsize * 1.2,
@@ -373,7 +393,7 @@ if __name__ == "__main__":
         # Label
         ax_stats.text(
             x_pos,
-            y_annual - 0.1,
+            y_annual - 0.2,
             label,
             va="center",
             ha="center",
