@@ -4,6 +4,7 @@ Main file for testing.
 """
 
 import os
+import textwrap
 import webbrowser
 from datetime import datetime
 from typing import Tuple
@@ -36,6 +37,11 @@ class StravaVisualizer:
         self.setup_fonts()
         self.setup_colors()
         self.setup_plot_params()
+
+        self.plot_save_path = os.path.join(
+            self.tmp_dir_path,
+            "strava_plot__latest.png",
+        )
 
     def setup_fonts(self):
         self.roboto_regular = fm.FontProperties(
@@ -443,12 +449,7 @@ class StravaVisualizer:
         pbar.close()
 
     def save_plot(self):
-        self.fig.savefig(
-            os.path.join(
-                self.tmp_dir_path,
-                f"strava_plot_{datetime.now().isoformat(timespec='seconds')}.png",
-            )
-        )
+        self.fig.savefig(self.plot_save_path)
         plt.close()
 
     @staticmethod
@@ -461,14 +462,60 @@ class StravaVisualizer:
         shell_script_file = os.path.join(os.getcwd(), "run_strava_script.sh")
         with open(shell_script_file, "w") as rsh:
             rsh.write(
-                f"""\
+                textwrap.dedent(
+                    f"""\
                 #! /bin/bash
                 {self.python_path} {self.script_path}
                 """
+                )
             )
 
         # Change permissions
         self.make_executable(shell_script_file)
+
+        print(
+            f"""Please follow these steps to make the script run daily:
+               ```
+               crontab -e
+               ```
+               Add this line to run the script daily at 2 AM:
+               ```
+               0 2 * * * {shell_script_file}
+               ```"""
+        )
+
+    def create_kiosk(self):
+        kiosk_script_file = os.path.join(os.getcwd(), "launch_strava_kiosk.sh")
+
+        with open(kiosk_script_file, "w") as rsh:
+            rsh.write(
+                textwrap.dedent(
+                    f"""\
+                #! /bin/bash
+                chromium-browser --kiosk --incognito file://{self.plot_save_path}
+                """
+                )
+            )
+
+        # Change permissions
+        self.make_executable(kiosk_script_file)
+
+        print(
+            f"""
+                Create a .desktop file in ~/.config/autostart/:
+                ```
+                mkdir -p ~/.config/autostart
+                nano ~/.config/autostart/kiosk.desktop
+                ```
+                Add the following content:
+                ```
+                [Desktop Entry]
+                Type=Application
+                Name=Strava Kiosk
+                Exec={kiosk_script_file}
+                ```
+                """
+        )
 
     def run(self):
         self.setup_strava_auth()
@@ -476,7 +523,10 @@ class StravaVisualizer:
         self.create_plot()
         self.generate_animation_frames()
         self.save_plot()
+
+    def create_scripts(self):
         self.create_shell_script()
+        self.create_kiosk()
 
 
 if __name__ == "__main__":
@@ -488,3 +538,4 @@ if __name__ == "__main__":
         tmp_dir_path=os.path.join(os.getcwd(), "tmp"),
     )
     visualizer.run()
+    visualizer.create_scripts()
