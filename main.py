@@ -474,14 +474,16 @@ class StravaVisualizer:
         self.make_executable(shell_script_file)
 
         print(
-            textwrap.dedent(f"""Please follow these steps to make the script run daily:
+            textwrap.dedent(
+                f"""Please follow these steps to make the script run daily:
                ```
                crontab -e
                ```
                Add this line to run the script daily at 2 AM:
                ```
                0 2 * * * {shell_script_file}
-               ```""")
+               ```"""
+            )
         )
 
     def create_kiosk(self):
@@ -501,7 +503,8 @@ class StravaVisualizer:
         self.make_executable(kiosk_script_file)
 
         print(
-            textwrap.dedent(f"""
+            textwrap.dedent(
+                f"""
                 Create a .desktop file in ~/.config/autostart/:
                 ```
                 mkdir -p ~/.config/autostart
@@ -514,7 +517,8 @@ class StravaVisualizer:
                 Name=Strava Kiosk
                 Exec={kiosk_script_file}
                 ```
-                """)
+                """
+            )
         )
 
     def run(self):
