@@ -4,6 +4,7 @@ Main file for testing.
 """
 
 import os
+import stat
 import webbrowser
 from datetime import datetime
 from typing import Tuple
@@ -21,496 +22,291 @@ from tqdm import tqdm
 import NYARPR.StravaVisualiser as strava_vis
 
 
-def scale_max_min(
-    data_array: np.ndarray, min_scale: float = 0.2, max_scale: float = 0.2
-) -> Tuple[float, float]:
-    """
-    A simple method to adjust the x_lim and y_lim of a plot in a controlled manner.
+class StravaVisualizer:
+    def __init__(self, python_path: str, tmp_dir_path: str, env_file_name: str = "user_information.env"):
+        self.python_path = python_path
+        self.env_path = os.path.join(os.getcwd(), env_file_name)
+        self.tmp_dir_path = tmp_dir_path
+        self.script_path = os.path.join(os.getcwd(), "main.py")
+        self.generate_animation = False  # TODO: Refactor this out
+        self.setup_fonts()
+        self.setup_colors()
+        self.setup_plot_params()
 
-    Parameters
-    ----------
-    data_array: The array of data.
-    min_scale: A factor to adjust the padding of the min value.
-    max_scale: A factor to adjust the padding of the min value.
+    def setup_fonts(self):
+        self.roboto_regular = fm.FontProperties(
+            fname=os.path.join(os.getcwd(), "fonts", "roboto", "Roboto-Regular.ttf"))
+        self.roboto_bold = fm.FontProperties(fname=os.path.join(os.getcwd(), "fonts", "roboto", "Roboto-Bold.ttf"))
+        self.font_awesome = fm.FontProperties(
+            fname=os.path.join(os.getcwd(), "icons", "font-awesome", "Font Awesome 6 Free-Solid-900.otf"))
 
-    Returns
-    -------
-    A tuple of floats (new_min, new_max).
-    """
-    min_val = np.min(data_array)
-    max_val = np.max(data_array)
+    def setup_colors(self):
+        self.bg_color = "#282a36"
+        self.text_color = "#f8f8f2"
+        self.accent_color = "#ff79c6"
+        self.secondary_color = "#8be9fd"
+        self.green_color = "#50fa7b"
+        self.comment_color = "#6272a4"
 
-    # Calculate the range
-    data_range = max_val - min_val
+    def setup_plot_params(self):
+        plt.rcParams.update({
+            "figure.facecolor": self.bg_color,
+            "text.color": self.text_color,
+            "axes.facecolor": self.bg_color,
+            "axes.edgecolor": self.text_color,
+            "axes.labelcolor": self.text_color,
+            "xtick.color": self.text_color,
+            "ytick.color": self.text_color,
+            "figure.dpi": 300,
+            "animation.convert_path": r"/usr/bin/convert",
+        })
+        self._label_fontsize = 22
+        self._title_fontsize = 26
+        self._text_fontsize = 20
+        self._icon_fontsize = 24
+        self._tick_size = 16
 
-    # Calculate the amount to add/subtract
-    padding_min = data_range * min_scale
-    padding_max = data_range * max_scale
+    @staticmethod
+    def scale_max_min(data_array: np.ndarray, min_scale: float = 0.2, max_scale: float = 0.2) -> Tuple[
+        float, float]:
+        min_val, max_val = np.min(data_array), np.max(data_array)
+        data_range = max_val - min_val
+        padding_min, padding_max = data_range * min_scale, data_range * max_scale
+        return min_val - padding_min, max_val + padding_max
 
-    # Calculate new min and max
-    new_min = min_val - padding_min
-    new_max = max_val + padding_max
+    def setup_strava_auth(self):
+        if len(strava_vis.get_env_variables(self.env_path)) < 4:
+            client_id = strava_vis.get_client_id(self.env_path)
+            strava_vis.get_client_secret(self.env_path)
 
-    return new_min, new_max
+            oauth_url = (
+                f"https://www.strava.com/oauth/authorize?client_id={client_id}"
+                "&response_type=code&redirect_uri=http://localhost/"
+                "exchange_token&approval_prompt=force&scope=profile:"
+                "read_all,activity:read_all"
+            )
+
+            try:
+                webbrowser.get()
+                webbrowser.open(oauth_url)
+            except Exception:
+                print("Please open the following URL in your web browser to authorize:")
+                print(oauth_url)
+
+            access_code_url = input("Please input the access code url\n--->:")
+            strava_vis.get_important_tokens(self.env_path, self.tmp_dir_path, access_code_url=access_code_url,
+                                            overwrite_old=True)
+
+        strava_vis.check_tokens(self.env_path)
+
+    def get_strava_data(self):
+        self.df_cumulative_info = strava_vis.get_cumulative_information(self.env_path)
+        recent_activity_id = strava_vis.get_latest_activity_code(self.env_path, activity_type="Run")
+        self.df_recent_activity_stream = strava_vis.get_activity_stream(self.env_path, recent_activity_id)
+        self.df_recent_activity_info = strava_vis.get_activity_info(self.env_path, recent_activity_id)
+
+        self.t = np.array(self.df_recent_activity_stream["time.data"].iloc[0]) / 60
+        self.hrt = self.df_recent_activity_stream["heartrate.data"].iloc[0]
+        self.lat_lng = np.array(self.df_recent_activity_stream["latlng.data"].iloc[0])
+        self.alt = self.df_recent_activity_stream["altitude.data"].iloc[0]
+        self.rel_alt = np.array(self.alt)
+        self.rel_alt -= self.rel_alt[0]
+
+    def create_plot(self):
+        self.fig = plt.figure(figsize=(16, 12))
+        gs = self.fig.add_gridspec(2, 2, width_ratios=[3, 1], height_ratios=[2, 1], hspace=0.3, wspace=0.3)
+
+        self.create_path_plot(gs[0, :])
+        self.create_hr_plot(gs[1, 0])
+        self.create_stats_plot(gs[1, 1])
+
+        self.fig.tight_layout()
+
+    def create_path_plot(self, gs):
+        self.ax_path = self.fig.add_subplot(gs)
+        self.ax_path_cmap = mpl.colormaps["magma"]
+        self.ax_path.plot(self.lat_lng[:, 0], self.lat_lng[:, 1], "--", color=self.comment_color)
+
+        if self.generate_animation:
+            self.scatter = self.ax_path.scatter([], [], c=[], cmap=self.ax_path_cmap, s=30, alpha=0.7, zorder=2.5)
+        else:
+            self.scatter = self.ax_path.scatter(self.lat_lng[:, 0], self.lat_lng[:, 1], c=self.rel_alt,
+                                                cmap=self.ax_path_cmap, s=30, alpha=0.7, zorder=2.5)
+
+        self.ax_path.set_xlim(self.scale_max_min(self.lat_lng[:, 0], 0.4, 0.2))
+        self.ax_path.set_ylim(self.scale_max_min(self.lat_lng[:, 1], 0.2, 0.2))
+
+        self.ax_path.set_xlabel("Longitude", fontproperties=self.roboto_regular, fontsize=self._label_fontsize)
+        self.ax_path.set_ylabel("Latitude", fontproperties=self.roboto_regular, fontsize=self._label_fontsize)
+        self.ax_path.set_title("Latest run", fontproperties=self.roboto_bold, fontsize=self._title_fontsize)
+        self.ax_path.axis("off")
+
+        self.add_colorbar()
+        self.add_run_details()
+
+    def add_colorbar(self):
+        divider = make_axes_locatable(self.ax_path)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+
+        norm = mpl.colors.Normalize(vmin=np.min(self.rel_alt), vmax=np.max(self.rel_alt))
+        mpl.cm.ScalarMappable(norm=norm, cmap=self.ax_path_cmap)
+        cbar = self.fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=self.ax_path_cmap), cax=cax)
+        cbar.set_label("Altitude (relative)", fontproperties=self.roboto_regular, fontsize=self._label_fontsize)
+        cbar.ax.tick_params(labelsize=self._tick_size)
+
+    def add_run_details(self):
+        recent_distance = self.df_recent_activity_info["distance"].iloc[0] / 1000
+        recent_timestamp = self.df_recent_activity_info["start_date_local"].iloc[0]
+        recent_gear = self.df_recent_activity_info["gear.name"].iloc[0]
+        recent_calories = self.df_recent_activity_info["calories"].iloc[0]
+        recent_moving_time = self.df_recent_activity_info["moving_time"].iloc[0] / 60
+
+        current_year = datetime.now().strftime("%Y")
+        dt = datetime.strptime(recent_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+        formatted_recent_timestamp = dt.strftime("%d %b %Y, %I:%M %p")
+
+        details = [
+            ("\uf073", f"{formatted_recent_timestamp}", "Date"),
+            ("\uf70c", f"{recent_distance:.2f} km", "Distance"),
+            ("\uf013", f" {recent_gear}", "Gear"),
+            ("\uf06d", f"{recent_calories:.0f} kcal", "Calories"),
+            ("\uf017", f"{recent_moving_time:.2f} min.", "Moving time"),
+        ]
+
+        for i, (icon, value, label) in enumerate(details):
+            self.ax_path.text(-0.1, 0.98 - i * 0.15, icon, transform=self.ax_path.transAxes,
+                              fontproperties=self.font_awesome, fontsize=self._icon_fontsize, va="top", ha="center",
+                              color=self.accent_color)
+            self.ax_path.text(-0.04, 0.98 - i * 0.15, value, transform=self.ax_path.transAxes, va="top", ha="left",
+                              fontproperties=self.roboto_bold, fontsize=self._text_fontsize, color=self.text_color)
+            self.ax_path.text(-0.04, 0.9 - i * 0.15, label, transform=self.ax_path.transAxes, va="top", ha="left",
+                              fontproperties=self.roboto_regular, fontsize=self._text_fontsize - 2,
+                              color=self.secondary_color)
+
+    def create_hr_plot(self, gs):
+        self.ax_hr = self.fig.add_subplot(gs)
+        _ = self.ax_hr.hist(self.hrt[0] if self.generate_animation else self.hrt, density=True, bins=50, alpha=0.6,
+                            color=self.secondary_color, edgecolor=self.accent_color)
+
+        min_hr, max_hr = np.min(self.hrt), np.max(self.hrt)
+        self.ax_hr.set_xlim((min_hr, max_hr))
+
+        kde = scistats.gaussian_kde(self.hrt)
+        xx = np.linspace(min_hr, max_hr, 100)
+        yy = kde(xx)
+
+        self.line_hr, = self.ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=self.accent_color)
+
+        self.ax_hr.set_xlabel("Heart rate (BPM)", fontproperties=self.roboto_regular, fontsize=self._label_fontsize)
+        self.ax_hr.set_ylabel("Density", fontproperties=self.roboto_regular, fontsize=self._label_fontsize)
+        self.ax_hr.set_title("Heart rate distribution", fontproperties=self.roboto_bold, fontsize=self._title_fontsize)
+        self.ax_hr.tick_params(axis="both", which="major", labelsize=self._tick_size)
+        self.ax_hr.yaxis.set_major_locator(MaxNLocator(nbins=3))
+        self.ax_hr.xaxis.set_major_locator(MaxNLocator(nbins=5))
+
+    def create_stats_plot(self, gs):
+        self.ax_stats = self.fig.add_subplot(gs)
+
+        x_start, x_delta = -0.3, 0.5
+        y_annual, y_last_4, y_stats = 0.2, 0.5, 0.9
+        current_year = datetime.now().strftime("%Y")
+
+        self.ax_stats.text(x_start + 2 * x_delta, y_stats, "Statistics", va="center", ha="center",
+                           fontproperties=self.roboto_bold, fontsize=self._text_fontsize + 2, color=self.text_color)
+        self.ax_stats.text(x_start, y_last_4, "Last 4 \nweeks", va="center", ha="center",
+                           fontproperties=self.roboto_bold, fontsize=self._text_fontsize, color=self.green_color)
+        self.ax_stats.text(x_start, y_annual, f"{current_year}", va="center", ha="center",
+                           fontproperties=self.roboto_bold, fontsize=self._text_fontsize, color=self.green_color)
+
+        stats = [
+            ("\uf1ec", "Runs", f"{self.df_cumulative_info['ytd_run_totals.count'].iloc[0]}",
+             f"{self.df_cumulative_info['recent_run_totals.count'].iloc[0]}"),
+            ("\uf547", "Distance", f"{self.df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km",
+             f"{self.df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km"),
+            ("\uf017", "Time spent", f"{self.df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs",
+             f"{self.df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs"),
+        ]
+
+        for i, (icon, label, value_4weeks, value_annual) in enumerate(stats):
+            x_pos = x_start + (i + 1) * x_delta
+            self.ax_stats.text(x_pos, y_last_4 + 0.25, icon, fontproperties=self.font_awesome,
+                               fontsize=self._icon_fontsize * 1.2, va="center", ha="center", color=self.accent_color)
+            self.ax_stats.text(x_pos, y_annual - 0.2, label, va="center", ha="center",
+                               fontproperties=self.roboto_regular, fontsize=self._text_fontsize - 2,
+                               color=self.secondary_color)
+            self.ax_stats.text(x_pos, y_annual, value_4weeks, va="center", ha="center", fontproperties=self.roboto_bold,
+                               fontsize=self._text_fontsize, color=self.text_color)
+            self.ax_stats.text(x_pos, y_last_4, value_annual, va="center", ha="center", fontproperties=self.roboto_bold,
+                               fontsize=self._text_fontsize, color=self.text_color)
+
+        self.ax_stats.axis("off")
+        self.ax_stats.patch.set_edgecolor(self.accent_color)
+        self.ax_stats.patch.set_linewidth(2)
+        self.ax_stats.patch.set_facecolor(self.bg_color)
+        self.ax_stats.patch.set_alpha(0.3)
+
+    def generate_animation_frames(self):
+        if not self.generate_animation:
+            return
+
+        pbar = tqdm(total=len(self.lat_lng))
+
+        def init():
+            self.scatter.set_offsets(self.lat_lng[:1])
+            self.scatter.set_array(self.rel_alt[:1])
+            self.scatter.set_clim(np.min(self.rel_alt), np.max(self.rel_alt))
+            return [self.scatter]
+
+        def update(frame):
+            pbar.update(1)
+            self.scatter.set_offsets(self.lat_lng[:frame])
+            self.scatter.set_array(self.rel_alt[:frame])
+            self.scatter.set_clim(np.min(self.rel_alt), np.max(self.rel_alt))
+            return [self.scatter]
+
+        anim = FuncAnimation(self.fig, update, frames=len(self.lat_lng), init_func=init, repeat=False,
+                             interval=10000 / len(self.lat_lng), blit=False)
+        anim.save(filename="plot.mp4")
+        pbar.close()
+
+    def save_plot(self):
+        self.fig.savefig(
+            os.path.join(self.tmp_dir_path, f"strava_plot_{datetime.now().isoformat(timespec='seconds')}.png"))
+        plt.close()
+
+    @staticmethod
+    def make_executable(path):
+        mode = os.stat(path).st_mode
+        mode |= (mode & 0o444) >> 2  # copy R bits to X
+        os.chmod(path, mode)
+
+    def create_shell_script(self):
+        shell_script_file = os.path.join(os.getcwd(), 'run_strava_script.sh')
+        with open(shell_script_file, 'w') as rsh:
+            rsh.write(
+                f'''\
+                #! /bin/bash
+                {self.python_path} {self.script_path}
+                '''
+            )
+
+        # Change permissions
+        self.make_executable(shell_script_file)
+
+
+    def run(self):
+        self.setup_strava_auth()
+        self.get_strava_data()
+        self.create_plot()
+        self.generate_animation_frames()
+        self.save_plot()
+        self.create_shell_script()
 
 
 if __name__ == "__main__":
-    generate_animation = False
-    env_path = os.path.join(os.getcwd(), "user_information.env")
-    tmp_dir_path = os.path.join(os.getcwd(), "tmp")
+    visualizer = StravaVisualizer(
+        python_path = os.path.join(os.getcwd(), "/home/ryan/.cache/pypoetry/virtualenvs/nyarpr-_htzKMus-py3.9/bin/python"),
+        tmp_dir_path = os.path.join(os.getcwd(), "tmp")
 
-    # Check to see if the environment variable file is fully defined
-
-    if len(strava_vis.get_env_variables(env_path)) < 4:  # Four variables are expected
-        # Ask user for the client id
-        client_id = strava_vis.get_client_id(env_path)
-
-        # Ask the user for the client secret
-        client_secret = strava_vis.get_client_secret(
-            env_path
-        )  # Don't actually need it, but oh well
-
-        # Basic loading for client information
-        try:
-            webbrowser.get()
-            webbrowser.open(
-                rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
-                "&response_type=code&redirect_uri=http://localhost/"
-                "exchange_token&approval_prompt=force&scope=profile:"
-                "read_all,activity:read_all"
-            )
-
-        except Exception:
-            oauth_url = (
-                rf"https://www.strava.com/oauth/authorize?client_id={client_id}"
-                "&response_type=code&redirect_uri=http://localhost/"
-                "exchange_token&approval_prompt=force&scope=profile:"
-                "read_all,activity:read_all"
-            )
-
-            print("Please open the following URL in your web browser to authorize:")
-            print(oauth_url)
-
-        # Ask the user for their client id
-        access_code_url = input("Please input the access code url\n--->:")
-
-        # Get the important tokens used to access the user information
-        strava_vis.get_important_tokens(
-            env_path,
-            tmp_dir_path,
-            access_code_url=access_code_url,
-            overwrite_old=True,
-        )
-
-        # Check the tokens
-        strava_vis.check_tokens(env_path)
-
-    else:
-        # Check the tokens
-        strava_vis.check_tokens(env_path)
-
-    df_cumulative_info = strava_vis.get_cumulative_information(env_path)
-
-    recent_activity_id = strava_vis.get_latest_activity_code(
-        env_path, activity_type="Run"
     )
-
-    df_recent_activity_stream = strava_vis.get_activity_stream(
-        env_path, recent_activity_id
-    )
-    df_recent_activity_info = strava_vis.get_activity_info(env_path, recent_activity_id)
-
-    t = np.array(df_recent_activity_stream["time.data"].iloc[0]) / 60
-    hrt = df_recent_activity_stream["heartrate.data"].iloc[0]
-    lat_lng = np.array(df_recent_activity_stream["latlng.data"].iloc[0])
-    alt = df_recent_activity_stream["altitude.data"].iloc[0]
-    rel_alt = np.array(alt)
-    rel_alt -= rel_alt[0]
-
-    # Set up Roboto font and Font Awesome
-    roboto_regular = fm.FontProperties(
-        fname=os.path.join(os.getcwd(), "fonts", "roboto", "Roboto-Regular.ttf")
-    )
-    roboto_bold = fm.FontProperties(
-        fname=os.path.join(os.getcwd(), "fonts", "roboto", "Roboto-Bold.ttf")
-    )
-    font_awesome = fm.FontProperties(
-        fname=os.path.join(
-            os.getcwd(), "icons", "font-awesome", "Font Awesome 6 Free-Solid-900.otf"
-        )
-    )
-
-    # Dracula-inspired color scheme
-    bg_color = "#282a36"
-    text_color = "#f8f8f2"
-    accent_color = "#ff79c6"
-    secondary_color = "#8be9fd"
-    green_color = "#50fa7b"
-    comment_color = "#6272a4"
-
-    plt.rcParams.update(
-        {
-            "figure.facecolor": bg_color,
-            "text.color": text_color,
-            "axes.facecolor": bg_color,
-            "axes.edgecolor": text_color,
-            "axes.labelcolor": text_color,
-            "xtick.color": text_color,
-            "ytick.color": text_color,
-            "figure.dpi": 300,
-            "animation.convert_path": r"/usr/bin/convert",
-        }
-    )
-
-    _label_fontsize = 22
-    _title_fontsize = 26
-    _text_fontsize = 20
-    _icon_fontsize = 24
-    _tick_size = 16
-
-    # Create the plot
-    fig = plt.figure(figsize=(16, 12))
-    gs = fig.add_gridspec(
-        2, 2, width_ratios=[3, 1], height_ratios=[2, 1], hspace=0.3, wspace=0.3
-    )
-
-    # Run path colored by heart rate
-    ax_path = fig.add_subplot(gs[0, :])
-    ax_path_cmap = mpl.colormaps["magma"]
-    ax_path.plot(lat_lng[:, 0], lat_lng[:, 1], "--", color=comment_color)
-
-    if generate_animation:
-        scatter = ax_path.scatter(
-            [], [], c=[], cmap=ax_path_cmap, s=30, alpha=0.7, zorder=2.5
-        )
-
-    else:
-        scatter = ax_path.scatter(
-            lat_lng[:, 0],
-            lat_lng[:, 1],
-            c=rel_alt,
-            cmap=ax_path_cmap,
-            s=30,
-            alpha=0.7,
-            zorder=2.5,
-        )
-
-    # Set limits
-    ax_path.set_xlim(scale_max_min(lat_lng[:, 0], 0.4, 0.2))
-    ax_path.set_ylim(scale_max_min(lat_lng[:, 1], 0.2, 0.2))
-
-    ax_path.set_xlabel(
-        "Longitude", fontproperties=roboto_regular, fontsize=_label_fontsize
-    )
-    ax_path.set_ylabel(
-        "Latitude", fontproperties=roboto_regular, fontsize=_label_fontsize
-    )
-    ax_path.set_title(
-        "Latest run", fontproperties=roboto_bold, fontsize=_title_fontsize
-    )
-    ax_path.axis("off")
-
-    # Add colorbar
-    divider = make_axes_locatable(ax_path)
-    cax = divider.append_axes("right", size="5%", pad=0.1)
-
-    norm = mpl.colors.Normalize(vmin=np.min(rel_alt), vmax=np.max(rel_alt))
-    mpl.cm.ScalarMappable(norm=norm, cmap=ax_path_cmap)
-    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=ax_path_cmap), cax=cax)
-    cbar.set_label(
-        "Altitude (relative)", fontproperties=roboto_regular, fontsize=_label_fontsize
-    )
-    cbar.ax.tick_params(labelsize=_tick_size)
-
-    # Add run details to legend
-    recent_distance = df_recent_activity_info["distance"].iloc[0] / 1000
-    recent_timestamp = df_recent_activity_info["start_date_local"].iloc[0]
-    recent_gear = df_recent_activity_info["gear.name"].iloc[0]
-    recent_calories = df_recent_activity_info["calories"].iloc[0]
-    recent_moving_time = df_recent_activity_info["moving_time"].iloc[0] / 60
-
-    current_year = datetime.now().strftime("%Y")
-    dt = datetime.strptime(recent_timestamp, "%Y-%m-%dT%H:%M:%SZ")
-    formatted_recent_timestamp = dt.strftime("%d %b %Y, %I:%M %p")
-
-    details = [
-        ("\uf073", f"{formatted_recent_timestamp}", "Date"),
-        ("\uf70c", f"{recent_distance:.2f} km", "Distance"),
-        ("\uf013", f" {recent_gear}", "Gear"),
-        ("\uf06d", f"{recent_calories:.0f} kcal", "Calories"),
-        ("\uf017", f"{recent_moving_time:.2f} min.", "Moving time"),
-    ]
-
-    for i, (icon, value, label) in enumerate(details):
-        ax_path.text(
-            -0.1,
-            0.98 - i * 0.15,
-            icon,
-            transform=ax_path.transAxes,
-            fontproperties=font_awesome,
-            fontsize=_icon_fontsize,
-            va="top",
-            ha="center",
-            color=accent_color,
-        )
-        ax_path.text(
-            -0.04,
-            0.98 - i * 0.15,
-            value,
-            transform=ax_path.transAxes,
-            va="top",
-            ha="left",
-            fontproperties=roboto_bold,
-            fontsize=_text_fontsize,
-            color=text_color,
-        )
-        ax_path.text(
-            -0.04,
-            0.9 - i * 0.15,
-            label,
-            transform=ax_path.transAxes,
-            va="top",
-            ha="left",
-            fontproperties=roboto_regular,
-            fontsize=_text_fontsize - 2,
-            color=secondary_color,
-        )
-
-    # Heart rate KDE and histogram
-    ax_hr = fig.add_subplot(gs[1, 0])
-    _ = ax_hr.hist(
-        hrt[0] if generate_animation else hrt,
-        density=True,
-        bins=50,
-        alpha=0.6,
-        color=secondary_color,
-        edgecolor=accent_color,
-    )
-
-    min_hr = np.min(hrt)
-    max_hr = np.max(hrt)
-    ax_hr.set_xlim((min_hr, max_hr))
-
-    kde = scistats.gaussian_kde(hrt)
-    xx = np.linspace(min_hr, max_hr, 100)
-    yy = kde(xx)
-
-    (line_hr,) = ax_hr.plot(xx, yy, linestyle="--", linewidth=2, color=accent_color)
-
-    ax_hr.set_xlabel(
-        "Heart rate (BPM)", fontproperties=roboto_regular, fontsize=_label_fontsize
-    )
-    ax_hr.set_ylabel("Density", fontproperties=roboto_regular, fontsize=_label_fontsize)
-    ax_hr.set_title(
-        "Heart rate distribution", fontproperties=roboto_bold, fontsize=_title_fontsize
-    )
-    ax_hr.tick_params(axis="both", which="major", labelsize=_tick_size)
-    ax_hr.yaxis.set_major_locator(MaxNLocator(nbins=3))
-    ax_hr.xaxis.set_major_locator(MaxNLocator(nbins=5))
-
-    # Stats bar
-    # Past 4 weeks
-
-    # \uf073
-    # Statistics section
-    ax_stats = fig.add_subplot(gs[1, 1])
-
-    # Column titles
-    x_start = -0.3
-    x_delta = 0.5
-    y_annual = 0.2
-    y_last_4 = 0.5
-    y_stats = 0.9
-
-    # Icon and main title
-    ax_stats.text(
-        x_start + 2 * x_delta,
-        y_stats,
-        "Statistics",
-        va="center",
-        ha="center",
-        fontproperties=roboto_bold,
-        fontsize=_text_fontsize + 2,
-        color=text_color,
-    )
-
-    ax_stats.text(
-        x_start,
-        y_last_4,
-        "Last 4 \nweeks",
-        va="center",
-        ha="center",
-        fontproperties=roboto_bold,
-        fontsize=_text_fontsize,
-        color=green_color,
-    )
-    ax_stats.text(
-        x_start,
-        y_annual,
-        f"{current_year}",
-        va="center",
-        ha="center",
-        fontproperties=roboto_bold,
-        fontsize=_text_fontsize,
-        color=green_color,
-    )
-
-    # Statistics data
-    stats = [
-        (
-            "\uf1ec",
-            "Runs",
-            f"{df_cumulative_info['ytd_run_totals.count'].iloc[0]}",
-            f"{df_cumulative_info['recent_run_totals.count'].iloc[0]}",
-        ),
-        (
-            "\uf547",
-            "Distance",
-            f"{df_cumulative_info['ytd_run_totals.distance'].iloc[0] / 1000:.1f} km",
-            f"{df_cumulative_info['recent_run_totals.distance'].iloc[0] / 1000:.1f} km",
-        ),
-        (
-            "\uf017",
-            "Time spent",
-            f"{df_cumulative_info['ytd_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs",
-            f"{df_cumulative_info['recent_run_totals.moving_time'].iloc[0] / 3600:.1f} hrs",
-        ),
-    ]
-
-    for i, (icon, label, value_4weeks, value_annual) in enumerate(stats):
-        x_pos = x_start + (i + 1) * x_delta
-
-        # Icon
-        ax_stats.text(
-            x_pos,
-            y_last_4 + 0.25,
-            icon,
-            fontproperties=font_awesome,
-            fontsize=_icon_fontsize * 1.2,
-            va="center",
-            ha="center",
-            color=accent_color,
-        )
-
-        # Label
-        ax_stats.text(
-            x_pos,
-            y_annual - 0.2,
-            label,
-            va="center",
-            ha="center",
-            fontproperties=roboto_regular,
-            fontsize=_text_fontsize - 2,
-            color=secondary_color,
-        )
-
-        # 4-week value
-        ax_stats.text(
-            x_pos,
-            y_annual,
-            value_4weeks,
-            va="center",
-            ha="center",
-            fontproperties=roboto_bold,
-            fontsize=_text_fontsize,
-            color=text_color,
-        )
-
-        # Annual value
-        ax_stats.text(
-            x_pos,
-            y_last_4,
-            value_annual,
-            va="center",
-            ha="center",
-            fontproperties=roboto_bold,
-            fontsize=_text_fontsize,
-            color=text_color,
-        )
-
-    ax_stats.axis("off")
-
-    # Add a border to the stats box
-    ax_stats.patch.set_edgecolor(accent_color)
-    ax_stats.patch.set_linewidth(2)
-    ax_stats.patch.set_facecolor(bg_color)
-    ax_stats.patch.set_alpha(0.3)
-
-    fig.tight_layout()
-
-    if generate_animation:
-        pbar = tqdm(total=len(lat_lng))
-
-        def init():
-            """
-            FunAnimation initialisation.
-            """
-            # line_hr.set_data([min_hr, max_hr], [0.1] * 2)
-
-            scatter.set_offsets(lat_lng[:1])
-            scatter.set_array(rel_alt[:1])  # Set initial color
-            scatter.set_clim(np.min(rel_alt), np.max(rel_alt))  # Set color limits
-
-            return [scatter]
-
-        def update(frame):
-            """
-            FunAnimation updating.
-            """
-            pbar.update(1)
-
-            # ax_path updates
-            scatter.set_offsets(lat_lng[:frame])
-            scatter.set_array(rel_alt[:frame])  # Update the color array
-
-            # Set the color limits to match the full range of rel_alt
-            scatter.set_clim(np.min(rel_alt), np.max(rel_alt))
-            #
-            # # ax_hr updates
-            # if frame % 300 == 0:
-            #     # Clear the frame
-            #     ax_hr.cla()
-            #
-            #     if frame < 3:
-            #         hrt_frame = hrt[:3]
-            #     else:
-            #         hrt_frame = hrt[:frame]
-            #     pdf, bins, _ = ax_hr.hist(
-            #         hrt_frame,
-            #         density=True,
-            #         bins=50,
-            #         alpha=0.6,
-            #         color=secondary_color,
-            #         edgecolor=accent_color,
-            #     )
-            #     kde = scistats.gaussian_kde(hrt_frame)
-            #     xx = np.linspace(min_hr, max_hr, 100)
-            #     yy = kde(xx)
-            #
-            #     line_hr.set_data(xx, yy)
-            #
-            #     ax_hr.set_ylim((-0.005, np.max(kde) * 1.5))
-
-            return [scatter]
-
-        anim = FuncAnimation(  # len(lat_lng)
-            fig,
-            update,
-            frames=len(lat_lng),
-            init_func=init,
-            repeat=False,
-            interval=10000 / len(lat_lng),
-            blit=False,
-        )
-
-        anim.save(filename="plot.mp4")
-
-        pbar.close()
-
-    fig.savefig(
-        os.path.join(
-            tmp_dir_path,
-            f"strava_plot_{datetime.now().isoformat(timespec='seconds')}.png",
-        )
-    )
-    plt.close()
+    visualizer.run()
