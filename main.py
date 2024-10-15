@@ -2,12 +2,13 @@
 """
 Main file for testing.
 """
-
+import json
 import os
+import sys
 import textwrap
 import webbrowser
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, Dict
 
 import matplotlib as mpl
 import matplotlib.font_manager as fm
@@ -42,6 +43,17 @@ class StravaVisualizer:
             self.tmp_dir_path,
             "strava_plot__latest.png",
         )
+
+        self.plot_metadata_path = os.path.join(
+            self.tmp_dir_path,
+            "strava_plot__metadata.json",
+        )
+
+
+        self.display_html_template_path = os.path.join(os.getcwd(), "display_template.html")
+        self.strava_diplay_html_path = os.path.join(tmp_dir_path, "strava_display.html")
+        self.kiosk_script_file_path = os.path.join(tmp_dir_path, "launch_strava_kiosk.sh")
+        self.shell_script_file_path = os.path.join(tmp_dir_path, "run_strava_script.sh")
 
     def setup_fonts(self):
         self.roboto_regular = fm.FontProperties(
@@ -125,11 +137,9 @@ class StravaVisualizer:
 
         strava_vis.check_tokens(self.env_path)
 
-    def get_strava_data(self):
-        self.df_cumulative_info = strava_vis.get_cumulative_information(self.env_path)
-        recent_activity_id = strava_vis.get_latest_activity_code(
-            self.env_path, activity_type="Run"
-        )
+    def get_strava_data(self, recent_activity_id: int):
+
+        # Create the plot information
         self.df_recent_activity_stream = strava_vis.get_activity_stream(
             self.env_path, recent_activity_id
         )
@@ -143,6 +153,46 @@ class StravaVisualizer:
         self.alt = self.df_recent_activity_stream["altitude.data"].iloc[0]
         self.rel_alt = np.array(self.alt)
         self.rel_alt -= self.rel_alt[0]
+
+
+    def get_recent_activity_id(self) -> int:
+        self.df_cumulative_info = strava_vis.get_cumulative_information(self.env_path)
+        recent_activity_id = strava_vis.get_latest_activity_code(
+            self.env_path, activity_type="Run"
+        )
+        return recent_activity_id
+
+    def check_strava_plot_metadata(self, activity_dictionary: Dict[str, int]) -> bool:
+        """
+        A simple method to check the plot metadata.
+        """
+
+        # Check whether the metadata json file exists
+        metadata_file_name = os.path.split(self.plot_metadata_path)[-1]
+
+        if metadata_file_name in os.listdir(self.tmp_dir_path):
+
+            with open(self.plot_metadata_path) as f:
+                activity_json_dict = json.load(f)
+
+            if activity_json_dict['recent_activity_id'] == activity_dictionary['recent_activity_id']:
+
+                print("Metadata file indicates that the plot is up to date.")
+
+                return True
+
+        # If this runs, either the json does not exist or the recent_activity_id is
+        # not right
+        # Serialise the json
+        json_object = json.dumps(activity_dictionary, indent=4)
+
+        # Writing to the metadata file
+        with open(self.plot_metadata_path, "w") as outfile:
+            outfile.write(json_object)
+
+        print("Metadata file indicates that the plot is NOT up to date.")
+
+        return False
 
     def create_plot(self):
         self.fig = plt.figure(figsize=(16, 12))
@@ -459,8 +509,8 @@ class StravaVisualizer:
         os.chmod(path, mode)
 
     def create_shell_script(self):
-        shell_script_file = os.path.join(os.getcwd(), "run_strava_script.sh")
-        with open(shell_script_file, "w") as rsh:
+
+        with open(self.shell_script_file_path, "w") as rsh:
             rsh.write(
                 textwrap.dedent(
                     f"""\
@@ -471,36 +521,36 @@ class StravaVisualizer:
             )
 
         # Change permissions
-        self.make_executable(shell_script_file)
+        self.make_executable(self.shell_script_file_path)
 
         print(
             textwrap.dedent(
-                f"""Please follow these steps to make the script run daily:
-               ```
-               crontab -e
-               ```
-               Add this line to run the script daily at 2 AM:
-               ```
-               0 2 * * * {shell_script_file}
-               ```"""
+                f"""Please follow these steps to make the script run every hour:
+                ```
+                crontab -e
+                ```
+                Add this line to run the script every hour:
+                ```
+                0 * * * * {self.shell_script_file_path}
+                ```"""
             )
         )
 
     def create_kiosk(self):
-        kiosk_script_file = os.path.join(os.getcwd(), "launch_strava_kiosk.sh")
 
-        with open(kiosk_script_file, "w") as rsh:
+
+        with open(self.kiosk_script_file_path, "w") as rsh:
             rsh.write(
                 textwrap.dedent(
                     f"""\
                 #! /bin/bash
-                chromium-browser --kiosk --incognito file://{self.plot_save_path}
+                chromium-browser --kiosk --incognito file://{self.strava_diplay_html_path}
                 """
                 )
             )
 
         # Change permissions
-        self.make_executable(kiosk_script_file)
+        self.make_executable(self.kiosk_script_file_path)
 
         print(
             textwrap.dedent(
@@ -515,31 +565,84 @@ class StravaVisualizer:
                 [Desktop Entry]
                 Type=Application
                 Name=Strava Kiosk
-                Exec={kiosk_script_file}
+                Exec={self.kiosk_script_file_path}
                 ```
                 """
             )
         )
 
     def run(self):
+
+        # Check the auth
         self.setup_strava_auth()
-        self.get_strava_data()
-        self.create_plot()
-        self.generate_animation_frames()
-        self.save_plot()
+
+        # Get the ID for the most recent activity
+        recent_activity_id = self.get_recent_activity_id()
+
+        # Create the activity_dictionary
+        activity_dictionary = {"recent_activity_id": recent_activity_id}
+
+        # Create the figure if the metadata shows the plot is outdated.
+        if not self.check_strava_plot_metadata(activity_dictionary):
+            self.get_strava_data(recent_activity_id)
+            self.create_plot()
+            self.generate_animation_frames()
+            self.save_plot()
 
     def create_scripts(self):
-        self.create_shell_script()
-        self.create_kiosk()
+
+        expected_file_paths = [self.shell_script_file_path, self.strava_diplay_html_path, self.kiosk_script_file_path]
+        expected_file_names = [os.path.split(file_path)[-1] for file_path in expected_file_paths]
+        expected_file_root_path = [os.path.join(*os.path.split(file_path)[:-1]) for file_path in expected_file_paths]
+
+        # Check if all script files exist
+        if not all(file_name in os.listdir(file_root_path) for file_root_path, file_name in zip(expected_file_root_path, expected_file_names)):
+            self.create_shell_script()
+            self.update_html()
+            self.create_kiosk()
+
+            print("Generated files indicate that the necessary files must be created.")
+
+        else:
+            print("Generated files indicate that the necessary files already exist.")
+
+    def update_html(self):
+
+        # Check if display file exists
+        split_html_path = os.path.split(self.strava_diplay_html_path)
+        display_file_root_path = os.path.join(*split_html_path[:-1])
+        display_file_name = split_html_path[-1]
+
+        if display_file_name not in os.listdir(display_file_root_path):
+            # Read the template
+            with open(self.display_html_template_path, "r") as f:
+                template = f.read()
+
+            # Replace the placeholder with the actual image path
+            plot_save_name = os.path.split(self.plot_save_path)[-1]
+            html_content = template.replace("IMAGE_PATH_PLACEHOLDER", plot_save_name)
+
+            # Write the final HTML
+            with open(self.strava_diplay_html_path, "w") as f:
+                f.write(html_content)
+
+            print(f"File {self.strava_diplay_html_path} has been generated.")
+
+        else:
+            print(f"File {self.strava_diplay_html_path} already exists.")
 
 
 if __name__ == "__main__":
     visualizer = StravaVisualizer(
         python_path=os.path.join(
             os.getcwd(),
-            "/home/ryan/.cache/pypoetry/virtualenvs/nyarpr-_htzKMus-py3.9/bin/python",
+            sys.executable,
         ),
         tmp_dir_path=os.path.join(os.getcwd(), "tmp"),
     )
+
+    # Run the visualisation code
     visualizer.run()
+
+    # Create the scripts
     visualizer.create_scripts()

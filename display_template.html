@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-refreshing Figure</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    </style>
+    <script>
+        function refreshImage() {
+            var img = document.getElementById('figure');
+            var src = img.src;
+            var pos = src.indexOf('?');
+            if (pos >= 0) {
+                src = src.substr(0, pos);
+            }
+            img.src = src + '?v=' + new Date().getTime();
+        }
+
+        window.onload = function() {
+            setInterval(refreshImage, 60000); // Refresh every 60 seconds
+        }
+    </script>
+</head>
+<body>
+    <img id="figure" src="IMAGE_PATH_PLACEHOLDER" alt="Strava Plot">
+</body>
+</html>
