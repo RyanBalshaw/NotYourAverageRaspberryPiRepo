@@ -8,7 +8,7 @@ import sys
 import textwrap
 import webbrowser
 from datetime import datetime
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import matplotlib as mpl
 import matplotlib.font_manager as fm
@@ -49,10 +49,13 @@ class StravaVisualizer:
             "strava_plot__metadata.json",
         )
 
-
-        self.display_html_template_path = os.path.join(os.getcwd(), "display_template.html")
+        self.display_html_template_path = os.path.join(
+            os.getcwd(), "display_template.html"
+        )
         self.strava_diplay_html_path = os.path.join(tmp_dir_path, "strava_display.html")
-        self.kiosk_script_file_path = os.path.join(tmp_dir_path, "launch_strava_kiosk.sh")
+        self.kiosk_script_file_path = os.path.join(
+            tmp_dir_path, "launch_strava_kiosk.sh"
+        )
         self.shell_script_file_path = os.path.join(tmp_dir_path, "run_strava_script.sh")
 
     def setup_fonts(self):
@@ -138,7 +141,6 @@ class StravaVisualizer:
         strava_vis.check_tokens(self.env_path)
 
     def get_strava_data(self, recent_activity_id: int):
-
         # Create the plot information
         self.df_recent_activity_stream = strava_vis.get_activity_stream(
             self.env_path, recent_activity_id
@@ -153,7 +155,6 @@ class StravaVisualizer:
         self.alt = self.df_recent_activity_stream["altitude.data"].iloc[0]
         self.rel_alt = np.array(self.alt)
         self.rel_alt -= self.rel_alt[0]
-
 
     def get_recent_activity_id(self) -> int:
         self.df_cumulative_info = strava_vis.get_cumulative_information(self.env_path)
@@ -171,12 +172,13 @@ class StravaVisualizer:
         metadata_file_name = os.path.split(self.plot_metadata_path)[-1]
 
         if metadata_file_name in os.listdir(self.tmp_dir_path):
-
             with open(self.plot_metadata_path) as f:
                 activity_json_dict = json.load(f)
 
-            if activity_json_dict['recent_activity_id'] == activity_dictionary['recent_activity_id']:
-
+            if (
+                activity_json_dict["recent_activity_id"]
+                == activity_dictionary["recent_activity_id"]
+            ):
                 print("Metadata file indicates that the plot is up to date.")
 
                 return True
@@ -509,7 +511,6 @@ class StravaVisualizer:
         os.chmod(path, mode)
 
     def create_shell_script(self):
-
         with open(self.shell_script_file_path, "w") as rsh:
             rsh.write(
                 textwrap.dedent(
@@ -537,8 +538,6 @@ class StravaVisualizer:
         )
 
     def create_kiosk(self):
-
-
         with open(self.kiosk_script_file_path, "w") as rsh:
             rsh.write(
                 textwrap.dedent(
@@ -572,7 +571,6 @@ class StravaVisualizer:
         )
 
     def run(self):
-
         # Check the auth
         self.setup_strava_auth()
 
@@ -590,13 +588,26 @@ class StravaVisualizer:
             self.save_plot()
 
     def create_scripts(self):
-
-        expected_file_paths = [self.shell_script_file_path, self.strava_diplay_html_path, self.kiosk_script_file_path]
-        expected_file_names = [os.path.split(file_path)[-1] for file_path in expected_file_paths]
-        expected_file_root_path = [os.path.join(*os.path.split(file_path)[:-1]) for file_path in expected_file_paths]
+        expected_file_paths = [
+            self.shell_script_file_path,
+            self.strava_diplay_html_path,
+            self.kiosk_script_file_path,
+        ]
+        expected_file_names = [
+            os.path.split(file_path)[-1] for file_path in expected_file_paths
+        ]
+        expected_file_root_path = [
+            os.path.join(*os.path.split(file_path)[:-1])
+            for file_path in expected_file_paths
+        ]
 
         # Check if all script files exist
-        if not all(file_name in os.listdir(file_root_path) for file_root_path, file_name in zip(expected_file_root_path, expected_file_names)):
+        if not all(
+            file_name in os.listdir(file_root_path)
+            for file_root_path, file_name in zip(
+                expected_file_root_path, expected_file_names
+            )
+        ):
             self.create_shell_script()
             self.update_html()
             self.create_kiosk()
@@ -607,7 +618,6 @@ class StravaVisualizer:
             print("Generated files indicate that the necessary files already exist.")
 
     def update_html(self):
-
         # Check if display file exists
         split_html_path = os.path.split(self.strava_diplay_html_path)
         display_file_root_path = os.path.join(*split_html_path[:-1])
