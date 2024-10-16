@@ -50,7 +50,7 @@ class StravaVisualizer:
         )
 
         self.display_html_template_path = os.path.join(
-            os.getcwd(), "display_template.html"
+            os.getcwd(), "html_templates", "display_template.html"
         )
         self.strava_diplay_html_path = os.path.join(tmp_dir_path, "strava_display.html")
         self.kiosk_script_file_path = os.path.join(
@@ -620,6 +620,7 @@ class StravaVisualizer:
     def update_html(self):
         # Check if display file exists
         split_html_path = os.path.split(self.strava_diplay_html_path)
+
         display_file_root_path = os.path.join(*split_html_path[:-1])
         display_file_name = split_html_path[-1]
 
