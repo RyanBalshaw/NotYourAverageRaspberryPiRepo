@@ -511,13 +511,16 @@ class StravaVisualizer:
         os.chmod(path, mode)
 
     def create_shell_script(self):
+        script_directory = os.path.dirname(self.script_path)
+
         with open(self.shell_script_file_path, "w") as rsh:
             rsh.write(
                 textwrap.dedent(
                     f"""\
-                #! /bin/bash
-                {self.python_path} {self.script_path}
-                """
+                    #!/bin/bash
+                    cd {script_directory}
+                    {self.python_path} {os.path.basename(self.script_path)}
+                    """
                 )
             )
 
