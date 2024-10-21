@@ -1,13 +1,13 @@
 # NotYourAverageRaspberryPiRepo
 
-Definitely an average raspberry pi repository.
+Definitely an average raspberry pi repository
 
 ## A simple list of projects is as follows:
 - Strava latest activity map plotter
 
 ### Strava Latest Activity Map Plotter
 
-A Raspberry Pi project to visualize your latest activities from Strava. This program fetches your recent Strava running data, generates a map plot, and sets up a visual kiosk display.
+A Raspberry Pi project to visualise your latest activities from Strava. This program fetches your recent Strava running data, generates a map plot, and sets up a visual kiosk display.
 
 ### Initial Setup
 
@@ -37,7 +37,7 @@ python main.py
   ```
   crontab -e
   ```
-  
+
   Add this line to run the script every hour:
   ```
   0 * * * * /path/to/tmp/run_strava_script.sh
@@ -52,19 +52,19 @@ To display the generated plot via a webpage on startup:
    sudo apt-get install chromium-browser
    ```
 
-2. Utilize the provided startup script to launch the browser in kiosk mode and display the plot:
+2. Utilise the provided startup script to launch the browser in kiosk mode and display the plot:
    ```
    /path/to/tmp/launch_strava_kiosk.sh
    ```
-   
+
 3. Make the browser launch on startup:
-   
+
    Create a `.desktop` file in `~/.config/autostart/`:
    ```
    mkdir -p ~/.config/autostart
    nano ~/.config/autostart/strava_kiosk.desktop
    ```
-   
+
    Add the following content:
    ```
    [Desktop Entry]
